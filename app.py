@@ -32,7 +32,7 @@ def get_connection():
 conn = get_connection()
 cursor = conn.cursor()
 
-# ---------- Create tables if not exist ----------
+# ---------- Create Tables if not exist ----------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS sponsorship_items (
     id SERIAL PRIMARY KEY,
@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS sponsorship_items (
     sponsor_limit INTEGER NOT NULL
 );
 """)
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS sponsors (
     id SERIAL PRIMARY KEY,
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS sponsors (
     donation NUMERIC DEFAULT 0
 );
 """)
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
@@ -60,12 +62,14 @@ CREATE TABLE IF NOT EXISTS events (
     link TEXT
 );
 """)
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS notification_emails (
     id SERIAL PRIMARY KEY,
     email TEXT UNIQUE NOT NULL
 );
 """)
+
 conn.commit()
 
 # ---------- Email Sending Function ----------
@@ -88,30 +92,24 @@ def send_email(subject, body):
         except Exception as e:
             print(f"Failed to send email to {recipient}: {e}")
 
-# ---------- Background Styling ----------
+# ---------- Styling ----------
 st.markdown("""
-    <style>
-        .stApp {
-            background-attachment: fixed;
-            background-size: cover;
-            background-position: center;
-        }
-        .block-container {
-            background-color: rgba(255, 255, 255, 0.90);
-            padding: 2rem;
-            border-radius: 10px;
-        }
-        label > div[data-testid="stMarkdownContainer"] > p:first-child:before {
-            content: "* ";
-            color: red;
-        }
-    </style>
+<style>
+    .block-container {
+        padding: 2rem 2rem 2rem 2rem;
+        border-radius: 10px;
+    }
+    label > div[data-testid="stMarkdownContainer"] > p:first-child:before {
+        content: "* ";
+        color: red;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
-# ---------- Tab 1: Sponsorship & Donation ----------
+# ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
     st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
@@ -154,12 +152,14 @@ with tabs[0]:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
+                # Insert one row per selected sponsorship item; donation only on first
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (name, email, mobile, apartment, item, d))
+                # If no sponsorship but donation given
                 if not selected_items and donation > 0:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
@@ -169,7 +169,7 @@ with tabs[0]:
                 st.success("🎉 Thank you for your contribution!")
                 send_email(
                     "New Sponsorship Submission",
-                    f"Name: {name}\nEmail: {email}\nItems: {', '.join(selected_items)}\nDonation: ${donation}"
+                    f"Name: {name}\nEmail: {email}\nItems: {', '.join(selected_items) if selected_items else 'None'}\nDonation: ${donation}"
                 )
             except Exception as e:
                 conn.rollback()
@@ -179,8 +179,19 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
-    cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
-    events = cursor.fetchall()
+    if "refresh_events" not in st.session_state:
+        st.session_state.refresh_events = True
+
+    def fetch_events():
+        cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
+        return cursor.fetchall()
+
+    if st.session_state.refresh_events:
+        events = fetch_events()
+        st.session_state.events = events
+        st.session_state.refresh_events = False
+    else:
+        events = st.session_state.get("events", [])
 
     if events:
         df_events = pd.DataFrame(events, columns=["ID", "Event Name", "Date", "Link"])
@@ -215,11 +226,12 @@ with tabs[1]:
                     )
                     conn.commit()
                     st.success("✅ Event added successfully!")
-                    # Send email notification about new event
                     send_email(
                         "New Ganesh Chaturthi Event Added",
                         f"Event Title: {new_title}\nEvent Date: {new_date}\nEvent Link: {new_link if new_link else 'N/A'}"
                     )
+                    st.session_state.refresh_events = True
+                    st.experimental_rerun()
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
@@ -227,6 +239,7 @@ with tabs[1]:
 # ---------- Tab 3: Statistics ----------
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
+
     df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
     st.markdown("### 📋 Sponsorship Records")
     st.dataframe(df)
@@ -246,7 +259,6 @@ with tabs[2]:
 # ---------- Tab 4: Admin ----------
 with tabs[3]:
     st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
-
     if "admin_logged_in" not in st.session_state:
         st.session_state.admin_logged_in = False
 
@@ -287,22 +299,19 @@ with tabs[3]:
             st.info("No notification emails configured yet.")
 
         st.markdown("### 📊 Sponsorship Items Overview")
-        df_items = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
-        st.dataframe(df_items)
+        df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
+        st.dataframe(df)
 
         st.markdown("### ✏️ Edit Existing Item")
-        item_id = st.selectbox("Select Item ID", df_items["id"].tolist())
-        item_row = df_items[df_items["id"] == item_id].iloc[0]
+        item_id = st.selectbox("Select Item ID", df["id"].tolist())
+        item_row = df[df.id == item_id].iloc[0]
         new_item_name = st.text_input("Item Name", value=item_row["item"])
         new_amount = st.number_input("Amount", value=float(item_row["amount"]))
         new_limit = st.number_input("Limit", value=int(item_row["sponsor_limit"]))
 
         if st.button("Update Item"):
             try:
-                cursor.execute(
-                    "UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s",
-                    (new_item_name, new_amount, new_limit, item_id)
-                )
+                cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
                 conn.commit()
                 st.success("✅ Item updated successfully!")
             except Exception as e:
@@ -316,10 +325,7 @@ with tabs[3]:
             new_lim = st.number_input("Limit", min_value=1, value=3)
             if st.form_submit_button("Add Item"):
                 try:
-                    cursor.execute(
-                        "INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)",
-                        (new_name, new_amt, new_lim)
-                    )
+                    cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
                     conn.commit()
                     st.success("✅ New item added!")
                 except Exception as e:
@@ -327,7 +333,7 @@ with tabs[3]:
                     st.error(f"❌ Failed to add item: {e}")
 
         st.markdown("### 🗑️ Delete Item")
-        del_item = st.selectbox("Select Item to Delete", df_items["item"].tolist())
+        del_item = st.selectbox("Select Item to Delete", df["item"].tolist())
         if st.button("Delete Item"):
             try:
                 cursor.execute("DELETE FROM sponsors WHERE sponsorship = %s", (del_item,))
