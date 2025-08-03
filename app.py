@@ -48,21 +48,24 @@ conn.commit()
 def send_email(subject, body):
     cursor.execute("SELECT email FROM notification_emails")
     recipients = [row[0] for row in cursor.fetchall()]
-    
+
     if not recipients:
         return
 
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_SENDER
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+    for recipient in recipients:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = recipient
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
 
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        for recipient in recipients:
-            msg['To'] = recipient
-            server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
+        try:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
+        except Exception as e:
+            print(f"Email failed to {recipient}: {e}")
 
 # ---------- Background Styling ----------
 st.markdown(f"""
@@ -196,76 +199,83 @@ with tabs[2]:
 # ---------- Tab 4: Admin ----------
 with tabs[3]:
     st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
-    with st.form("admin_login"):
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-        login = st.form_submit_button("Login")
+    if "admin_logged_in" not in st.session_state:
+        st.session_state.admin_logged_in = False
 
-    if login:
-        if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
-            st.success("✅ Admin access granted!")
+    if not st.session_state.admin_logged_in:
+        with st.form("admin_login"):
+            user = st.text_input("Username")
+            pwd = st.text_input("Password", type="password")
+            login = st.form_submit_button("Login")
 
-            st.markdown("### 📩 Notification Email Configuration")
-            with st.form("add_email_form"):
-                new_email = st.text_input("Add Notification Email")
-                if st.form_submit_button("Add Email"):
-                    try:
-                        cursor.execute("INSERT INTO notification_emails (email) VALUES (%s) ON CONFLICT DO NOTHING", (new_email,))
-                        conn.commit()
-                        st.success("✅ Email added")
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"❌ Failed to add email: {e}")
+        if login:
+            if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+                st.session_state.admin_logged_in = True
+                st.success("✅ Admin access granted!")
+            else:
+                st.error("❌ Invalid admin credentials")
 
-            cursor.execute("SELECT email FROM notification_emails")
-            emails = [row[0] for row in cursor.fetchall()]
-            st.markdown("### 📧 Configured Notification Emails")
-            st.write(emails)
+    if st.session_state.admin_logged_in:
+        st.markdown("### 📩 Notification Email Configuration")
+        with st.form("add_email_form"):
+            new_email = st.text_input("Add Notification Email")
+            submit_email = st.form_submit_button("Add Email")
+        if submit_email and new_email:
+            try:
+                cursor.execute("INSERT INTO notification_emails (email) VALUES (%s) ON CONFLICT DO NOTHING", (new_email,))
+                conn.commit()
+                st.success("✅ Email added")
+            except Exception as e:
+                conn.rollback()
+                st.error(f"❌ Failed to add email: {e}")
 
-            st.markdown("### 📊 Sponsorship Items Overview")
-            df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
-            st.dataframe(df)
+        cursor.execute("SELECT email FROM notification_emails")
+        emails = [row[0] for row in cursor.fetchall()]
+        st.markdown("### 📧 Configured Notification Emails")
+        st.write(emails)
 
-            st.markdown("### ✏️ Edit Existing Item")
-            item_id = st.selectbox("Select Item ID", df["id"].tolist())
-            item_row = df[df.id == item_id].iloc[0]
-            new_item_name = st.text_input("Item Name", value=item_row["item"])
-            new_amount = st.number_input("Amount", value=float(item_row["amount"]))
-            new_limit = st.number_input("Limit", value=int(item_row["sponsor_limit"]))
+        st.markdown("### 📊 Sponsorship Items Overview")
+        df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
+        st.dataframe(df)
 
-            if st.button("Update Item"):
+        st.markdown("### ✏️ Edit Existing Item")
+        item_id = st.selectbox("Select Item ID", df["id"].tolist())
+        item_row = df[df.id == item_id].iloc[0]
+        new_item_name = st.text_input("Item Name", value=item_row["item"])
+        new_amount = st.number_input("Amount", value=float(item_row["amount"]))
+        new_limit = st.number_input("Limit", value=int(item_row["sponsor_limit"]))
+
+        if st.button("Update Item"):
+            try:
+                cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
+                conn.commit()
+                st.success("✅ Item updated successfully!")
+            except Exception as e:
+                conn.rollback()
+                st.error(f"❌ Failed to update: {e}")
+
+        st.markdown("### ➕ Add New Sponsorship Item")
+        with st.form("add_item_form"):
+            new_name = st.text_input("New Item Name")
+            new_amt = st.number_input("Amount", min_value=0)
+            new_lim = st.number_input("Limit", min_value=1, value=3)
+            if st.form_submit_button("Add Item"):
                 try:
-                    cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
+                    cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
                     conn.commit()
-                    st.success("✅ Item updated successfully!")
+                    st.success("✅ New item added!")
                 except Exception as e:
                     conn.rollback()
-                    st.error(f"❌ Failed to update: {e}")
+                    st.error(f"❌ Failed to add item: {e}")
 
-            st.markdown("### ➕ Add New Sponsorship Item")
-            with st.form("add_item_form"):
-                new_name = st.text_input("New Item Name")
-                new_amt = st.number_input("Amount", min_value=0)
-                new_lim = st.number_input("Limit", min_value=1, value=3)
-                if st.form_submit_button("Add Item"):
-                    try:
-                        cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
-                        conn.commit()
-                        st.success("✅ New item added!")
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"❌ Failed to add item: {e}")
-
-            st.markdown("### 🗑️ Delete Item")
-            del_item = st.selectbox("Select Item to Delete", df["item"].tolist())
-            if st.button("Delete Item"):
-                try:
-                    cursor.execute("DELETE FROM sponsors WHERE sponsorship = %s", (del_item,))
-                    cursor.execute("DELETE FROM sponsorship_items WHERE item = %s", (del_item,))
-                    conn.commit()
-                    st.success("✅ Item and related sponsorships deleted!")
-                except Exception as e:
-                    conn.rollback()
-                    st.error(f"❌ Failed to delete item: {e}")
-        else:
-            st.error("❌ Invalid admin credentials")
+        st.markdown("### 🗑️ Delete Item")
+        del_item = st.selectbox("Select Item to Delete", df["item"].tolist())
+        if st.button("Delete Item"):
+            try:
+                cursor.execute("DELETE FROM sponsors WHERE sponsorship = %s", (del_item,))
+                cursor.execute("DELETE FROM sponsorship_items WHERE item = %s", (del_item,))
+                conn.commit()
+                st.success("✅ Item and related sponsorships deleted!")
+            except Exception as e:
+                conn.rollback()
+                st.error(f"❌ Failed to delete item: {e}")
