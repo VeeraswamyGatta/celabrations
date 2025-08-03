@@ -106,6 +106,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Initialize admin login state if not set
+if "admin_logged_in" not in st.session_state:
+    st.session_state.admin_logged_in = False
+
 # ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
@@ -177,7 +181,6 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
-    # Load events if not loaded or refresh flag set
     if "events" not in st.session_state or st.session_state.get("refresh_events", True):
         cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
         events = cursor.fetchall()
@@ -198,7 +201,6 @@ with tabs[1]:
         display_df = df_events.drop(columns=["ID"])
         st.dataframe(display_df, use_container_width=True)
 
-        # Select event to edit/delete
         selected_event_id = st.selectbox(
             "Select Event to Edit/Delete",
             df_events["ID"].tolist(),
@@ -214,7 +216,6 @@ with tabs[1]:
                 value=pd.to_datetime(event_row["Date"]).date() if pd.notna(event_row["Date"]) else datetime.date.today()
             )
             current_link = event_row["Link"]
-            # Strip markdown link syntax if present
             if current_link.startswith("[Link](") and current_link.endswith(")"):
                 current_link = current_link[6:-1]
             edited_link = st.text_input("Edit Event Link", value=current_link)
@@ -287,34 +288,11 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Tab 3: Statistics ----------
+# ---------- Tab 3: Statistics (with admin authentication) ----------
 with tabs[2]:
-    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
-
-    df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
-    st.markdown("### 📋 Sponsorship Records")
-    st.dataframe(df)
-
-    st.markdown("### 📊 Bar Chart of Sponsorships")
-    chart_data = df["sponsorship"].value_counts().reset_index()
-    chart_data.columns = ["Sponsorship", "Count"]
-
-    chart = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X("Sponsorship", sort="-y"),
-        y="Count",
-        tooltip=["Sponsorship", "Count"]
-    ).properties(width=700)
-
-    st.altair_chart(chart, use_container_width=True)
-
-# ---------- Tab 4: Admin ----------
-with tabs[3]:
-    st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
-    if "admin_logged_in" not in st.session_state:
-        st.session_state.admin_logged_in = False
-
     if not st.session_state.admin_logged_in:
-        with st.form("admin_login"):
+        st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Login Required</h1>", unsafe_allow_html=True)
+        with st.form("admin_login_stats"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
             login = st.form_submit_button("Login")
@@ -323,10 +301,46 @@ with tabs[3]:
             if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
                 st.session_state.admin_logged_in = True
                 st.success("✅ Admin access granted!")
+                st.experimental_rerun()
             else:
                 st.error("❌ Invalid admin credentials")
+    else:
+        st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    if st.session_state.admin_logged_in:
+        df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
+        st.markdown("### 📋 Sponsorship Records")
+        st.dataframe(df)
+
+        st.markdown("### 📊 Bar Chart of Sponsorships")
+        chart_data = df["sponsorship"].value_counts().reset_index()
+        chart_data.columns = ["Sponsorship", "Count"]
+
+        chart = alt.Chart(chart_data).mark_bar().encode(
+            x=alt.X("Sponsorship", sort="-y"),
+            y="Count",
+            tooltip=["Sponsorship", "Count"]
+        ).properties(width=700)
+
+        st.altair_chart(chart, use_container_width=True)
+
+# ---------- Tab 4: Admin ----------
+with tabs[3]:
+    st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
+
+    if not st.session_state.admin_logged_in:
+        with st.form("admin_login_admin"):
+            user = st.text_input("Username")
+            pwd = st.text_input("Password", type="password")
+            login = st.form_submit_button("Login")
+
+        if login:
+            if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+                st.session_state.admin_logged_in = True
+                st.success("✅ Admin access granted!")
+                st.experimental_rerun()
+            else:
+                st.error("❌ Invalid admin credentials")
+    else:
         st.markdown("### 📩 Notification Email Configuration")
         with st.form("add_email_form"):
             new_email = st.text_input("Add Notification Email")
