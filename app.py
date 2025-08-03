@@ -89,16 +89,6 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- Always Show Image (35% height) ----------
-st.markdown(
-    """
-    <div style='display: flex; justify-content: center;'>
-        <img src='ganesh.png' style='height: 35vh; object-fit: contain;' />
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
 # ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
