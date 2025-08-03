@@ -132,14 +132,12 @@ with tabs[0]:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
-                # Insert one row per selected item with donation = 0 for those items
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (name, email, mobile, apartment, item, d))
-                # If no items selected but donation > 0, insert donation-only row with sponsorship NULL
                 if not selected_items and donation > 0:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
@@ -162,22 +160,10 @@ with tabs[1]:
 
     if fetched_events:
         df_events = pd.DataFrame(fetched_events, columns=["Event Name", "Link"])
-        # Replace None or '*' or empty links with empty string
-        df_events["Link"] = df_events["Link"].apply(lambda x: x if x and x != "*" else "")
+        # Normalize link: None or "*" or empty => empty string
+        df_events["Link"] = df_events["Link"].apply(lambda x: "" if not x or x.strip() == "*" else x.strip())
 
-        # Create a clickable markdown link or just text
-        def link_or_text(row):
-            if row["Link"]:
-                return f"[Link]({row['Link']})"
-            else:
-                return ""
-
-        df_events["Link Display"] = df_events.apply(link_or_text, axis=1)
-
-        # Display as a table but with markdown links rendered
-        # streamlit doesn't render markdown inside dataframe, so we display using st.write with unsafe_allow_html
-        # We'll build a small html table for that
-
+        # Build HTML table with clickable links where available
         html_table = """
         <table style="width:100%; border-collapse: collapse;">
         <thead>
@@ -190,10 +176,11 @@ with tabs[1]:
         """
 
         for _, row in df_events.iterrows():
+            link_html = f'<a href="{row["Link"]}" target="_blank" rel="noopener noreferrer">Link</a>' if row["Link"] else ""
             html_table += f"""
             <tr>
                 <td style="border: 1px solid black; padding: 8px;">{row['Event Name']}</td>
-                <td style="border: 1px solid black; padding: 8px;">{row['Link Display']}</td>
+                <td style="border: 1px solid black; padding: 8px;">{link_html}</td>
             </tr>
             """
 
