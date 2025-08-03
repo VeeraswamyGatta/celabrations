@@ -43,18 +43,22 @@ conn = get_connection()
 cursor = conn.cursor()
 
 # ---------- Table Setup ----------
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS sponsors (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        mobile TEXT,
-        apartment TEXT NOT NULL,
-        sponsorship TEXT,
-        donation NUMERIC
-    );
-""")
-conn.commit()
+try:
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sponsors (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            mobile TEXT,
+            apartment TEXT NOT NULL,
+            sponsorship TEXT,
+            donation NUMERIC
+        );
+    """)
+    conn.commit()
+except Exception as e:
+    conn.rollback()
+    st.error(f"❌ Database table creation failed: {e}")
 
 # ---------- Background Styling ----------
 st.markdown(f"""
@@ -115,13 +119,17 @@ with tabs[0]:
         elif not selected_items and donation == 0:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
-            for item in selected_items or [None]:
-                cursor.execute("""
-                    INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
-            conn.commit()
-            st.success("🎉 Thank you for your contribution!")
+            try:
+                for item in selected_items or [None]:
+                    cursor.execute("""
+                        INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
+                conn.commit()
+                st.success("🎉 Thank you for your contribution!")
+            except Exception as e:
+                conn.rollback()
+                st.error(f"❌ Submission failed: {e}")
 
 # ---------- Tab 2: Events / Statistics ----------
 with tabs[1]:
