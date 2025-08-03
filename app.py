@@ -33,20 +33,48 @@ def get_connection():
 conn = get_connection()
 cursor = conn.cursor()
 
-# ---------- Notification Email Table ----------
+# ---------- Create Tables if not exist ----------
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS notification_emails (
-        id SERIAL PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL
-    );
+CREATE TABLE IF NOT EXISTS sponsorship_items (
+    id SERIAL PRIMARY KEY,
+    item TEXT UNIQUE NOT NULL,
+    amount NUMERIC NOT NULL,
+    sponsor_limit INTEGER NOT NULL
+);
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS sponsors (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    mobile TEXT,
+    apartment TEXT NOT NULL,
+    sponsorship TEXT,
+    donation NUMERIC DEFAULT 0
+);
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    link TEXT
+);
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS notification_emails (
+    id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL
+);
 """)
 conn.commit()
 
-# ---------- Email Sender Function ----------
+# ---------- Email Sending Function ----------
 def send_email(subject, body):
     cursor.execute("SELECT email FROM notification_emails")
     recipients = [row[0] for row in cursor.fetchall()]
-
     if not recipients:
         return
 
@@ -56,14 +84,13 @@ def send_email(subject, body):
         msg['To'] = recipient
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
-
         try:
             with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
                 server.starttls()
                 server.login(EMAIL_SENDER, EMAIL_PASSWORD)
                 server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
         except Exception as e:
-            print(f"Email failed to {recipient}: {e}")
+            print(f"Failed to send email to {recipient}: {e}")
 
 # ---------- Background Styling ----------
 st.markdown(f"""
@@ -105,7 +132,7 @@ with tabs[0]:
     cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
     counts = dict(cursor.fetchall())
 
-    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
     rows = cursor.fetchall()
 
     selected_items = []
@@ -115,7 +142,7 @@ with tabs[0]:
         remaining = limit - count
         st.markdown(f"**{item}** — :orange[${cost}] | Total: {limit}, Remaining: {remaining}")
 
-        if count < limit:
+        if remaining > 0:
             if st.checkbox(f"Sponsor {item}", key=item):
                 selected_items.append(item)
         else:
@@ -126,18 +153,20 @@ with tabs[0]:
     donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     if st.button("✅ Submit"):
-        if not name or not email or not apartment:
+        if not name.strip() or not email.strip() or not apartment.strip():
             st.error("Name, Email and Apartment Number are mandatory.")
         elif not selected_items and donation == 0:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
+                # Insert one row per selected sponsorship item with donation only for first
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (name, email, mobile, apartment, item, d))
+                # If no sponsorship items but donation given, insert with sponsorship = NULL
                 if not selected_items and donation > 0:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
@@ -160,34 +189,15 @@ with tabs[1]:
 
     if fetched_events:
         df_events = pd.DataFrame(fetched_events, columns=["Event Name", "Link"])
-        # Normalize link: None or "*" or empty => empty string
-        df_events["Link"] = df_events["Link"].apply(lambda x: "" if not x or x.strip() == "*" else x.strip())
 
-        # Build HTML table with clickable links where available
-        html_table = """
-        <table style="width:100%; border-collapse: collapse;">
-        <thead>
-          <tr style="background-color:#C8E6C9;">
-            <th style="border: 1px solid black; padding: 8px; text-align: left;">Event Name</th>
-            <th style="border: 1px solid black; padding: 8px; text-align: left;">Link</th>
-          </tr>
-        </thead>
-        <tbody>
-        """
+        def make_clickable(link):
+            if link and link.strip() not in ("", "*"):
+                return f"[Link]({link.strip()})"
+            return ""
 
-        for _, row in df_events.iterrows():
-            link_html = f'<a href="{row["Link"]}" target="_blank" rel="noopener noreferrer">Link</a>' if row["Link"] else ""
-            html_table += f"""
-            <tr>
-                <td style="border: 1px solid black; padding: 8px;">{row['Event Name']}</td>
-                <td style="border: 1px solid black; padding: 8px;">{link_html}</td>
-            </tr>
-            """
+        df_events["Link"] = df_events["Link"].apply(make_clickable)
 
-        html_table += "</tbody></table>"
-
-        st.markdown(html_table, unsafe_allow_html=True)
-
+        st.dataframe(df_events, use_container_width=True)
     else:
         st.info("No events added yet.")
 
@@ -198,10 +208,10 @@ with tabs[1]:
         new_link = st.text_input("Event Link (optional)")
         submitted = st.form_submit_button("Add Event")
         if submitted:
-            if not new_title:
+            if not new_title.strip():
                 st.error("Event title is required.")
             else:
-                link_to_store = None if new_link.strip() == "" or new_link.strip() == "*" else new_link.strip()
+                link_to_store = None if new_link.strip() in ("", "*") else new_link.strip()
                 try:
                     cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, link_to_store))
                     conn.commit()
@@ -210,7 +220,7 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Tab 3: Statistics (View Only) ----------
+# ---------- Tab 3: Statistics ----------
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
