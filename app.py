@@ -55,6 +55,13 @@ try:
             donation NUMERIC
         );
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            link TEXT
+        );
+    """)
     conn.commit()
 except Exception as e:
     conn.rollback()
@@ -137,13 +144,27 @@ with tabs[1]:
 
     st.markdown("### 📅 List of Events")
 
-    events = {
-        "Day 1: Ganapathi Sthapana": "https://example.com/day1",
-        "Day 2: Visesha Alankaram": "https://example.com/day2",
-        "Day 3: Cultural Programs": "https://example.com/day3",
-        "Day 4: Annadanam": "https://example.com/day4",
-        "Day 5: Nimajjanam": "https://example.com/day5"
-    }
+    cursor.execute("SELECT title, link FROM events")
+    fetched_events = cursor.fetchall()
 
-    for event, link in events.items():
-        st.markdown(f"- [{event}]({link})")
+    for event in fetched_events:
+        title, link = event
+        st.markdown(f"- [{title}]({link})")
+
+    st.markdown("---")
+    st.markdown("### ➕ Add New Event")
+    with st.form("add_event_form"):
+        new_title = st.text_input("Event Title")
+        new_link = st.text_input("Event Link (optional)")
+        submitted = st.form_submit_button("Add Event")
+        if submitted:
+            if not new_title:
+                st.error("Event title is required.")
+            else:
+                try:
+                    cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, new_link))
+                    conn.commit()
+                    st.success("✅ Event added successfully!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Failed to add event: {e}")
