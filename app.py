@@ -59,6 +59,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
+    event_date DATE,
     link TEXT
 );
 """)
@@ -182,14 +183,15 @@ with tabs[0]:
 # ---------- Tab 2: Events ----------
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
-    st.markdown("### 📅 List of Events")
-
-    cursor.execute("SELECT title, link FROM events ORDER BY id")
+    
+    # Load all events
+    cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY id")
     fetched_events = cursor.fetchall()
 
     if fetched_events:
-        df_events = pd.DataFrame(fetched_events, columns=["Event Name", "Link"])
+        df_events = pd.DataFrame(fetched_events, columns=["ID", "Event Name", "Date", "Link"])
 
+        # Convert link to markdown clickable links or empty string
         def make_clickable(link):
             if link and link.strip() not in ("", "*"):
                 return f"[Link]({link.strip()})"
@@ -197,7 +199,49 @@ with tabs[1]:
 
         df_events["Link"] = df_events["Link"].apply(make_clickable)
 
-        st.dataframe(df_events, use_container_width=True)
+        # Show table without ID column, but keep it in dataframe for reference
+        display_df = df_events.drop(columns=["ID"])
+
+        st.dataframe(display_df, use_container_width=True)
+
+        # Store selected event ID for editing or deleting
+        selected_event_id = st.selectbox("Select Event to Edit/Delete", df_events["ID"].tolist(), format_func=lambda x: df_events[df_events["ID"]==x]["Event Name"].values[0])
+
+        if selected_event_id:
+            event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
+
+            # Editable fields
+            edited_title = st.text_input("Edit Event Title", value=event_row["Event Name"])
+            edited_date = st.date_input("Edit Event Date", value=event_row["Date"] if pd.notna(event_row["Date"]) else datetime.date.today())
+            edited_link = st.text_input("Edit Event Link", value=event_row["Link"].replace(f"[Link](", "").replace(")", "") if event_row["Link"] else "")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Update Event"):
+                    if not edited_title.strip():
+                        st.error("Event title is required.")
+                    else:
+                        link_to_store = None if edited_link.strip() in ("", "*") else edited_link.strip()
+                        try:
+                            cursor.execute(
+                                "UPDATE events SET title=%s, event_date=%s, link=%s WHERE id=%s",
+                                (edited_title, edited_date, link_to_store, selected_event_id)
+                            )
+                            conn.commit()
+                            st.success("✅ Event updated successfully!")
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to update event: {e}")
+
+            with col2:
+                if st.button("Delete Event"):
+                    try:
+                        cursor.execute("DELETE FROM events WHERE id=%s", (selected_event_id,))
+                        conn.commit()
+                        st.success("🗑️ Event deleted successfully!")
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to delete event: {e}")
     else:
         st.info("No events added yet.")
 
@@ -205,6 +249,7 @@ with tabs[1]:
     st.markdown("### ➕ Add New Event")
     with st.form("add_event_form"):
         new_title = st.text_input("Event Title")
+        new_date = st.date_input("Event Date", value=datetime.date.today())
         new_link = st.text_input("Event Link (optional)")
         submitted = st.form_submit_button("Add Event")
         if submitted:
@@ -213,7 +258,7 @@ with tabs[1]:
             else:
                 link_to_store = None if new_link.strip() in ("", "*") else new_link.strip()
                 try:
-                    cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, link_to_store))
+                    cursor.execute("INSERT INTO events (title, event_date, link) VALUES (%s, %s, %s)", (new_title, new_date, link_to_store))
                     conn.commit()
                     st.success("✅ Event added successfully!")
                 except Exception as e:
