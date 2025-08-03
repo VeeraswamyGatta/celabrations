@@ -161,22 +161,46 @@ with tabs[1]:
     fetched_events = cursor.fetchall()
 
     if fetched_events:
-        # Create dataframe with proper handling of empty/NULL links
-        df_events = pd.DataFrame(fetched_events, columns=["Title", "Link"])
-        # Replace None or empty strings with empty string for display
+        df_events = pd.DataFrame(fetched_events, columns=["Event Name", "Link"])
+        # Replace None or '*' or empty links with empty string
         df_events["Link"] = df_events["Link"].apply(lambda x: x if x and x != "*" else "")
 
-        def make_link(row):
+        # Create a clickable markdown link or just text
+        def link_or_text(row):
             if row["Link"]:
-                return f"[{row['Title']}]({row['Link']})"
+                return f"[Link]({row['Link']})"
             else:
-                return row["Title"]
+                return ""
 
-        df_events["Event"] = df_events.apply(make_link, axis=1)
+        df_events["Link Display"] = df_events.apply(link_or_text, axis=1)
 
-        # Display the event names with links (markdown)
-        for ev in df_events["Event"]:
-            st.markdown(f"- {ev}")
+        # Display as a table but with markdown links rendered
+        # streamlit doesn't render markdown inside dataframe, so we display using st.write with unsafe_allow_html
+        # We'll build a small html table for that
+
+        html_table = """
+        <table style="width:100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color:#C8E6C9;">
+            <th style="border: 1px solid black; padding: 8px; text-align: left;">Event Name</th>
+            <th style="border: 1px solid black; padding: 8px; text-align: left;">Link</th>
+          </tr>
+        </thead>
+        <tbody>
+        """
+
+        for _, row in df_events.iterrows():
+            html_table += f"""
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">{row['Event Name']}</td>
+                <td style="border: 1px solid black; padding: 8px;">{row['Link Display']}</td>
+            </tr>
+            """
+
+        html_table += "</tbody></table>"
+
+        st.markdown(html_table, unsafe_allow_html=True)
+
     else:
         st.info("No events added yet.")
 
@@ -190,7 +214,6 @@ with tabs[1]:
             if not new_title:
                 st.error("Event title is required.")
             else:
-                # Replace empty or '*' link with None to store NULL in DB
                 link_to_store = None if new_link.strip() == "" or new_link.strip() == "*" else new_link.strip()
                 try:
                     cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, link_to_store))
@@ -204,7 +227,6 @@ with tabs[1]:
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    # Include email and mobile in the query for display
     df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
     st.markdown("### 📋 Sponsorship Records")
     st.dataframe(df)
