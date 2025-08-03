@@ -60,24 +60,19 @@ except Exception as e:
 # ---------- Background Styling ----------
 st.markdown(f"""
     <style>
+        /* Full page background image */
         .stApp {{
             background-image: url('{BG_IMAGE_URL}');
-            background-attachment: fixed;
             background-size: cover;
             background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            height: 100vh;
         }}
         .block-container {{
             background-color: rgba(255, 255, 255, 0.90);
             padding: 2rem;
             border-radius: 10px;
-        }}
-        /* Red asterisk before label text */
-        label[for="name"]::before,
-        label[for="email"]::before,
-        label[for="apartment"]::before {{
-            content: "* ";
-            color: red;
-            font-weight: bold;
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -90,10 +85,10 @@ with tabs[0]:
     st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
-    name = st.text_input("👤 Full Name", key="name")
-    email = st.text_input("📧 Email Address", key="email")
-    apartment = st.text_input("🏢 Apartment Number (Required)", key="apartment")
-    mobile = st.text_input("📱 Mobile Number (Optional)", key="mobile")
+    name = st.text_input("👤 Full Name", placeholder="Enter your full name")
+    email = st.text_input("📧 Email Address", placeholder="Enter your email address")
+    apartment = st.text_input("🏢 Apartment Number", placeholder="Enter your apartment number")
+    mobile = st.text_input("📱 Mobile Number (Optional)", placeholder="Enter your mobile number")
 
     st.markdown("---")
     st.markdown("### 🛕 Sponsorship Items")
@@ -184,7 +179,6 @@ with tabs[1]:
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    # Fetch sponsorship summary
     cursor.execute("""
         SELECT
             si.item,
@@ -202,7 +196,6 @@ with tabs[2]:
     summary_df = pd.DataFrame(summary_data, columns=["Item", "Amount ($)", "Sponsor Limit", "Number Sponsored", "Total Collected ($)"])
     st.dataframe(summary_df.style.format({"Amount ($)": "${:.2f}", "Total Collected ($)": "${:.2f}"}))
 
-    # Bar chart for number of sponsors per item
     st.bar_chart(summary_df.set_index("Item")["Number Sponsored"])
 
     st.markdown("---")
