@@ -8,25 +8,8 @@ st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
 # ---------- Constants ----------
 BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
-
-sponsorship_items = {
-    "Ganesh Idol": 300,
-    "Priest Donation (2 days)": 200,
-    "Pooja Items (Patri, Flowers, Coconuts)": 150,
-    "Garlands": 150,
-    "Fruits": 50,
-    "Tamala Leaves": 10,
-    "Pooja Essentials (Karpooram, etc.)": 100,
-    "Decoration (Marigold, Backdrop, etc.)": 200,
-    "Nimarjanam Logistics": 200,
-    "Serving Items (Bowls, Water, Napkins)": 400,
-    "Miscellaneous Items": 500
-}
-
-def calculate_limit(cost):
-    return int(cost // 50) if cost >= 50 else 3
-
-sponsor_limits = {item: calculate_limit(cost) for item, cost in sponsorship_items.items()}
+ADMIN_USERNAME = st.secrets["admin_user"]
+ADMIN_PASSWORD = st.secrets["admin_pass"]
 
 # ---------- DB Connection ----------
 @st.cache_resource
@@ -62,6 +45,14 @@ try:
             link TEXT
         );
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sponsorship_items (
+            id SERIAL PRIMARY KEY,
+            item TEXT UNIQUE,
+            amount NUMERIC,
+            limit INTEGER
+        );
+    """)
     conn.commit()
 except Exception as e:
     conn.rollback()
@@ -85,7 +76,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------- Tabs ----------
-tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events"])
+tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
@@ -103,9 +94,12 @@ with tabs[0]:
     cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
     counts = dict(cursor.fetchall())
 
+    cursor.execute("SELECT item, amount, limit FROM sponsorship_items")
+    rows = cursor.fetchall()
+
     selected_items = []
-    for item, cost in sponsorship_items.items():
-        limit = sponsor_limits[item]
+    for row in rows:
+        item, cost, limit = row
         count = counts.get(item, 0)
 
         st.markdown(f"**{item}** — :orange[${cost}] | Limit: {limit}, Sponsored: {count}")
@@ -141,7 +135,6 @@ with tabs[0]:
 # ---------- Tab 2: Events ----------
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
-
     st.markdown("### 📅 List of Events")
 
     cursor.execute("SELECT title, link FROM events")
@@ -168,3 +161,63 @@ with tabs[1]:
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
+
+# ---------- Tab 3: Admin ----------
+with tabs[2]:
+    st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
+    with st.form("admin_login"):
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+        login = st.form_submit_button("Login")
+
+    if login:
+        if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+            st.success("✅ Admin access granted!")
+
+            st.markdown("### 📊 Sponsorship Items Overview")
+            df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
+            st.dataframe(df)
+
+            st.markdown("### ✏️ Edit Existing Item")
+            item_id = st.selectbox("Select Item ID", df["id"].tolist())
+            item_row = df[df.id == item_id].iloc[0]
+            new_item_name = st.text_input("Item Name", value=item_row["item"])
+            new_amount = st.number_input("Amount", value=float(item_row["amount"]))
+            new_limit = st.number_input("Limit", value=int(item_row["limit"]))
+
+            if st.button("Update Item"):
+                try:
+                    cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
+                    conn.commit()
+                    st.success("✅ Item updated successfully!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Failed to update: {e}")
+
+            st.markdown("### ➕ Add New Sponsorship Item")
+            with st.form("add_item_form"):
+                new_name = st.text_input("New Item Name")
+                new_amt = st.number_input("Amount", min_value=0)
+                new_lim = st.number_input("Limit", min_value=1, value=3)
+                if st.form_submit_button("Add Item"):
+                    try:
+                        cursor.execute("INSERT INTO sponsorship_items (item, amount, limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
+                        conn.commit()
+                        st.success("✅ New item added!")
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to add item: {e}")
+
+            st.markdown("### 🗑️ Delete Item")
+            del_item = st.selectbox("Select Item to Delete", df["item"].tolist())
+            if st.button("Delete Item"):
+                try:
+                    cursor.execute("DELETE FROM sponsors WHERE sponsorship = %s", (del_item,))
+                    cursor.execute("DELETE FROM sponsorship_items WHERE item = %s", (del_item,))
+                    conn.commit()
+                    st.success("✅ Item and related sponsorships deleted!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Failed to delete item: {e}")
+        else:
+            st.error("❌ Invalid admin credentials")
