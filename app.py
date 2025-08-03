@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import os
-from io import BytesIO
 from psycopg2.extras import RealDictCursor
 import altair as alt
 import smtplib
@@ -134,11 +132,20 @@ with tabs[0]:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
-                for item in selected_items or [None]:
+                # Insert one row per selected item with donation = 0 for those items
+                for idx, item in enumerate(selected_items):
+                    # Only add donation amount once (for first selected item) else 0
+                    d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
+                    """, (name, email, mobile, apartment, item, d))
+                # If no items selected but donation > 0, insert donation-only row with sponsorship NULL
+                if not selected_items and donation > 0:
+                    cursor.execute("""
+                        INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
+                        VALUES (%s, %s, %s, %s, NULL, %s)
+                    """, (name, email, mobile, apartment, donation))
                 conn.commit()
                 st.success("🎉 Thank you for your contribution!")
                 send_email("New Sponsorship Submission", f"Name: {name}\nEmail: {email}\nItems: {', '.join(selected_items)}\nDonation: ${donation}")
@@ -229,10 +236,14 @@ with tabs[3]:
                 conn.rollback()
                 st.error(f"❌ Failed to add email: {e}")
 
-        cursor.execute("SELECT email FROM notification_emails")
-        emails = [row[0] for row in cursor.fetchall()]
-        st.markdown("### 📧 Configured Notification Emails")
-        st.write(emails)
+        cursor.execute("SELECT id, email FROM notification_emails ORDER BY id")
+        emails = cursor.fetchall()
+        if emails:
+            df_emails = pd.DataFrame(emails, columns=["ID", "Email"])
+            st.markdown("### 📧 Configured Notification Emails")
+            st.dataframe(df_emails, use_container_width=True)
+        else:
+            st.info("No notification emails configured yet.")
 
         st.markdown("### 📊 Sponsorship Items Overview")
         df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
