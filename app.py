@@ -1,16 +1,15 @@
-import streamlit as st
+import io
 import pandas as pd
+import streamlit as st
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
-# ---------- Constants ----------
 BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD = st.secrets["admin_pass"]
 
-# ---------- DB Connection ----------
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(
@@ -77,7 +76,6 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
@@ -175,40 +173,71 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Tab 3: Statistics ----------
+# ---------- Tab 3: Statistics (requires login) ----------
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    cursor.execute("""
-        SELECT
-            si.item,
-            si.amount,
-            si.sponsor_limit,
-            COALESCE(COUNT(s.id), 0) AS sponsors_count,
-            COALESCE(COUNT(s.id), 0) * si.amount AS total_collected
-        FROM sponsorship_items si
-        LEFT JOIN sponsors s ON s.sponsorship = si.item
-        GROUP BY si.id
-        ORDER BY si.id
-    """)
-    summary_data = cursor.fetchall()
+    if "stat_login" not in st.session_state:
+        st.session_state.stat_login = False
 
-    summary_df = pd.DataFrame(summary_data, columns=["Item", "Amount ($)", "Sponsor Limit", "Number Sponsored", "Total Collected ($)"])
-    st.dataframe(summary_df.style.format({"Amount ($)": "${:.2f}", "Total Collected ($)": "${:.2f}"}))
+    if not st.session_state.stat_login:
+        with st.form("statistics_login_form"):
+            stat_user = st.text_input("Admin Username", key="stat_user")
+            stat_pwd = st.text_input("Admin Password", type="password", key="stat_pwd")
+            stat_submit = st.form_submit_button("Login")
 
-    st.bar_chart(summary_df.set_index("Item")["Number Sponsored"])
+            if stat_submit:
+                if stat_user == ADMIN_USERNAME and stat_pwd == ADMIN_PASSWORD:
+                    st.session_state.stat_login = True
+                    st.success("✅ Logged in to Statistics!")
+                else:
+                    st.error("❌ Invalid credentials for Statistics")
+    else:
+        cursor.execute("""
+            SELECT
+                si.item,
+                si.amount,
+                si.sponsor_limit,
+                COALESCE(COUNT(s.id), 0) AS sponsors_count,
+                COALESCE(COUNT(s.id), 0) * si.amount AS total_collected
+            FROM sponsorship_items si
+            LEFT JOIN sponsors s ON s.sponsorship = si.item
+            GROUP BY si.id
+            ORDER BY si.id
+        """)
+        summary_data = cursor.fetchall()
+        summary_df = pd.DataFrame(summary_data, columns=["Item", "Amount ($)", "Sponsor Limit", "Number Sponsored", "Total Collected ($)"])
+        st.dataframe(summary_df.style.format({"Amount ($)": "${:.2f}", "Total Collected ($)": "${:.2f}"}))
+        st.bar_chart(summary_df.set_index("Item")["Number Sponsored"])
 
-    st.markdown("---")
-    st.markdown("### 📝 Sponsors List")
+        st.markdown("---")
+        st.markdown("### 📝 Sponsors List")
+        cursor.execute("""
+            SELECT name, email, apartment, sponsorship, donation
+            FROM sponsors
+            ORDER BY id DESC
+        """)
+        sponsors = cursor.fetchall()
+        sponsors_df = pd.DataFrame(sponsors, columns=["Name", "Email", "Apartment", "Sponsored Item", "Donation ($)"])
+        st.dataframe(sponsors_df.style.format({"Donation ($)": "${:.2f}"}))
 
-    cursor.execute("""
-        SELECT name, email, apartment, sponsorship, donation
-        FROM sponsors
-        ORDER BY id DESC
-    """)
-    sponsors = cursor.fetchall()
-    sponsors_df = pd.DataFrame(sponsors, columns=["Name", "Email", "Apartment", "Sponsored Item", "Donation ($)"])
-    st.dataframe(sponsors_df.style.format({"Donation ($)": "${:.2f}"}))
+        # Export to Excel button
+        def to_excel():
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                summary_df.to_excel(writer, sheet_name='Sponsorship Summary', index=False)
+                sponsors_df.to_excel(writer, sheet_name='Sponsors List', index=False)
+                writer.save()
+                processed_data = output.getvalue()
+            return processed_data
+
+        excel_data = to_excel()
+        st.download_button(
+            label="📥 Download Data as Excel",
+            data=excel_data,
+            file_name='ganesh_sponsorship_data.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
 # ---------- Tab 4: Admin ----------
 with tabs[3]:
