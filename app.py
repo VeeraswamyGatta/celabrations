@@ -126,6 +126,7 @@ if st.button("✅ Submit Sponsorship"):
 # --- STATS ---
 st.markdown("## 📊 Sponsorship Statistics")
 
+
 stats = []
 for item, cost in sponsorship_items.items():
     limit = sponsor_limits[item]
