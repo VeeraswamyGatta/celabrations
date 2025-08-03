@@ -89,22 +89,22 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- Always Show Image ----------
-st.image("ganesh.png", use_container_width=True, output_format="PNG")
+# ---------- Always Show Image (35% height) ----------
+st.markdown(
+    """
+    <div style='display: flex; justify-content: center;'>
+        <img src='ganesh.png' style='height: 35vh; object-fit: contain;' />
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
-    st.markdown(
-        """
-        <div style='display: flex; justify-content: center;'>
-            <img src='ganesh.png' style='height: 35vh; object-fit: contain;' />
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
     name = st.text_input("👤 Full Name")
@@ -189,5 +189,3 @@ with tabs[1]:
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
-
-# (Other tabs continue unchanged...)
