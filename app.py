@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import os
 from psycopg2.extras import RealDictCursor
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
@@ -72,21 +71,29 @@ st.markdown(f"""
             padding: 2rem;
             border-radius: 10px;
         }}
+        /* Put red asterisk before label text */
+        label[for="name"]::before,
+        label[for="email"]::before,
+        label[for="apartment"]::before {{
+            content: "* ";
+            color: red;
+            font-weight: bold;
+        }}
     </style>
 """, unsafe_allow_html=True)
 
 # ---------- Tabs ----------
-tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "🔐 Admin"])
+tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
     st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
-    name = st.text_input("👤 Full Name")
-    email = st.text_input("📧 Email Address")
-    apartment = st.text_input("🏢 Apartment Number (Required)")
-    mobile = st.text_input("📱 Mobile Number (Optional)")
+    name = st.text_input("👤 Full Name", key="name")
+    email = st.text_input("📧 Email Address", key="email")
+    apartment = st.text_input("🏢 Apartment Number (Required)", key="apartment")
+    mobile = st.text_input("📱 Mobile Number (Optional)", key="mobile")
 
     st.markdown("---")
     st.markdown("### 🛕 Sponsorship Items")
@@ -94,7 +101,7 @@ with tabs[0]:
     cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
     counts = dict(cursor.fetchall())
 
-    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
     rows = cursor.fetchall()
 
     selected_items = []
@@ -115,17 +122,24 @@ with tabs[0]:
     donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     if st.button("✅ Submit"):
-        if not name or not email or not apartment:
-            st.error("Name, Email and Apartment Number are mandatory.")
+        if not name.strip() or not email.strip() or not apartment.strip():
+            st.error("❗ Name, Email, and Apartment Number are mandatory.")
         elif not selected_items and donation == 0:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
-                for item in selected_items or [None]:
+                if selected_items:
+                    for idx, item in enumerate(selected_items):
+                        don = donation if idx == 0 else 0
+                        cursor.execute("""
+                            INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (name, email, mobile, apartment, item, don))
+                else:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
+                        VALUES (%s, %s, %s, %s, NULL, %s)
+                    """, (name, email, mobile, apartment, donation))
                 conn.commit()
                 st.success("🎉 Thank you for your contribution!")
             except Exception as e:
@@ -137,12 +151,15 @@ with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
     st.markdown("### 📅 List of Events")
 
-    cursor.execute("SELECT title, link FROM events")
+    cursor.execute("SELECT title, link FROM events ORDER BY id")
     fetched_events = cursor.fetchall()
 
     for event in fetched_events:
         title, link = event
-        st.markdown(f"- [{title}]({link})")
+        if link:
+            st.markdown(f"- [{title}]({link})")
+        else:
+            st.markdown(f"- {title}")
 
     st.markdown("---")
     st.markdown("### ➕ Add New Event")
@@ -151,7 +168,7 @@ with tabs[1]:
         new_link = st.text_input("Event Link (optional)")
         submitted = st.form_submit_button("Add Event")
         if submitted:
-            if not new_title:
+            if not new_title.strip():
                 st.error("Event title is required.")
             else:
                 try:
@@ -162,8 +179,45 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Tab 3: Admin ----------
+# ---------- Tab 3: Statistics ----------
 with tabs[2]:
+    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
+
+    # Fetch sponsorship summary
+    cursor.execute("""
+        SELECT
+            si.item,
+            si.amount,
+            si.sponsor_limit,
+            COALESCE(COUNT(s.id), 0) AS sponsors_count,
+            COALESCE(COUNT(s.id), 0) * si.amount AS total_collected
+        FROM sponsorship_items si
+        LEFT JOIN sponsors s ON s.sponsorship = si.item
+        GROUP BY si.id
+        ORDER BY si.id
+    """)
+    summary_data = cursor.fetchall()
+
+    summary_df = pd.DataFrame(summary_data, columns=["Item", "Amount ($)", "Sponsor Limit", "Number Sponsored", "Total Collected ($)"])
+    st.dataframe(summary_df.style.format({"Amount ($)": "${:.2f}", "Total Collected ($)": "${:.2f}"}))
+
+    # Bar chart for number of sponsors per item
+    st.bar_chart(summary_df.set_index("Item")["Number Sponsored"])
+
+    st.markdown("---")
+    st.markdown("### 📝 Sponsors List")
+
+    cursor.execute("""
+        SELECT name, email, apartment, sponsorship, donation
+        FROM sponsors
+        ORDER BY id DESC
+    """)
+    sponsors = cursor.fetchall()
+    sponsors_df = pd.DataFrame(sponsors, columns=["Name", "Email", "Apartment", "Sponsored Item", "Donation ($)"])
+    st.dataframe(sponsors_df.style.format({"Donation ($)": "${:.2f}"}))
+
+# ---------- Tab 4: Admin ----------
+with tabs[3]:
     st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
     with st.form("admin_login"):
         user = st.text_input("Username")
