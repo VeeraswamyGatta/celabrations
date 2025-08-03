@@ -177,6 +177,7 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
+    # Load events if not loaded or refresh flag set
     if "events" not in st.session_state or st.session_state.get("refresh_events", True):
         cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
         events = cursor.fetchall()
@@ -196,6 +197,65 @@ with tabs[1]:
         df_events["Link"] = df_events["Link"].apply(make_clickable)
         display_df = df_events.drop(columns=["ID"])
         st.dataframe(display_df, use_container_width=True)
+
+        # Select event to edit/delete
+        selected_event_id = st.selectbox(
+            "Select Event to Edit/Delete",
+            df_events["ID"].tolist(),
+            format_func=lambda x: df_events[df_events["ID"] == x]["Event Name"].values[0]
+        )
+
+        if selected_event_id:
+            event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
+
+            edited_title = st.text_input("Edit Event Title", value=event_row["Event Name"])
+            edited_date = st.date_input(
+                "Edit Event Date",
+                value=pd.to_datetime(event_row["Date"]).date() if pd.notna(event_row["Date"]) else datetime.date.today()
+            )
+            current_link = event_row["Link"]
+            # Strip markdown link syntax if present
+            if current_link.startswith("[Link](") and current_link.endswith(")"):
+                current_link = current_link[6:-1]
+            edited_link = st.text_input("Edit Event Link", value=current_link)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Update Event"):
+                    if not edited_title.strip():
+                        st.error("Event title is required.")
+                    else:
+                        link_to_store = None if edited_link.strip() in ("", "*") else edited_link.strip()
+                        try:
+                            cursor.execute(
+                                "UPDATE events SET title=%s, event_date=%s, link=%s WHERE id=%s",
+                                (edited_title, edited_date, link_to_store, selected_event_id)
+                            )
+                            conn.commit()
+                            st.success("✅ Event updated successfully!")
+                            send_email(
+                                "Ganesh Chaturthi Event Updated",
+                                f"Event updated:\nTitle: {edited_title}\nDate: {edited_date}\nLink: {edited_link if edited_link else 'N/A'}"
+                            )
+                            st.session_state.refresh_events = True
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to update event: {e}")
+
+            with col2:
+                if st.button("Delete Event"):
+                    try:
+                        cursor.execute("DELETE FROM events WHERE id=%s", (selected_event_id,))
+                        conn.commit()
+                        st.success("🗑️ Event deleted successfully!")
+                        send_email(
+                            "Ganesh Chaturthi Event Deleted",
+                            f"Event deleted:\nTitle: {event_row['Event Name']}\nDate: {event_row['Date']}\nLink: {event_row['Link']}"
+                        )
+                        st.session_state.refresh_events = True
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to delete event: {e}")
     else:
         st.info("No events added yet.")
 
@@ -302,7 +362,8 @@ with tabs[3]:
 
         if st.button("Update Item"):
             try:
-                cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
+                cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s",
+                               (new_item_name, new_amount, new_limit, item_id))
                 conn.commit()
                 st.success("✅ Item updated successfully!")
             except Exception as e:
@@ -316,7 +377,8 @@ with tabs[3]:
             new_lim = st.number_input("Limit", min_value=1, value=3)
             if st.form_submit_button("Add Item"):
                 try:
-                    cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
+                    cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)",
+                                   (new_name, new_amt, new_lim))
                     conn.commit()
                     st.success("✅ New item added!")
                 except Exception as e:
