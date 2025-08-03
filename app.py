@@ -7,11 +7,12 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import datetime
+from PIL import Image
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
 # ---------- Constants ----------
-BG_IMAGE_URL = "https://www.google.com/imgres?imgurl=https%3A%2F%2Fnkbmeditation.org%2Fimages%2Fimage%2F67b2195b3ff881a3495342df%2Fimage.png&tbnid=7pJ2Ktdq3IeSVM&vet=10CAQQxiAoAWoXChMIoJ-D963vjgMVAAAAAB0AAAAAEAc..i&imgrefurl=https%3A%2F%2Fnkbmeditation.org%2Fblog%2Fganesh-chaturthi&docid=6j-cBOZduTAoVM&w=800&h=450&itg=1&q=lord%20ganesha%20chaturthi%202025&ved=0CAQQxiAoAWoXChMIoJ-D963vjgMVAAAAAB0AAAAAEAc"
+# Removed BG_IMAGE_URL since we're using local image now
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD = st.secrets["admin_pass"]
 EMAIL_SENDER = st.secrets["email_sender"]
@@ -97,7 +98,6 @@ def send_email(subject, body):
 st.markdown(f"""
     <style>
         .stApp {{
-            background-image: url('{BG_IMAGE_URL}');
             background-attachment: fixed;
             background-size: cover;
             background-position: center;
@@ -119,6 +119,10 @@ tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics",
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
+    # Display local Ganesh image at top
+    ganesh_img = Image.open("ganesh.png")
+    st.image(ganesh_img, use_column_width=True)
+
     st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
@@ -184,33 +188,31 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
     
-    # Load all events
     cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY id")
     fetched_events = cursor.fetchall()
 
     if fetched_events:
         df_events = pd.DataFrame(fetched_events, columns=["ID", "Event Name", "Date", "Link"])
 
-        # Convert link to markdown clickable links or empty string
         def make_clickable(link):
             if link and link.strip() not in ("", "*"):
                 return f"[Link]({link.strip()})"
             return ""
 
         df_events["Link"] = df_events["Link"].apply(make_clickable)
-
-        # Show table without ID column, but keep it in dataframe for reference
         display_df = df_events.drop(columns=["ID"])
 
         st.dataframe(display_df, use_container_width=True)
 
-        # Store selected event ID for editing or deleting
-        selected_event_id = st.selectbox("Select Event to Edit/Delete", df_events["ID"].tolist(), format_func=lambda x: df_events[df_events["ID"]==x]["Event Name"].values[0])
+        selected_event_id = st.selectbox(
+            "Select Event to Edit/Delete",
+            df_events["ID"].tolist(),
+            format_func=lambda x: df_events[df_events["ID"]==x]["Event Name"].values[0]
+        )
 
         if selected_event_id:
             event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
 
-            # Editable fields
             edited_title = st.text_input("Edit Event Title", value=event_row["Event Name"])
             edited_date = st.date_input("Edit Event Date", value=event_row["Date"] if pd.notna(event_row["Date"]) else datetime.date.today())
             edited_link = st.text_input("Edit Event Link", value=event_row["Link"].replace(f"[Link](", "").replace(")", "") if event_row["Link"] else "")
