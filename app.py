@@ -131,14 +131,19 @@ with tabs[0]:
                 conn.rollback()
                 st.error(f"❌ Submission failed: {e}")
 
-# ---------- Tab 2: Events / Statistics ----------
+# ---------- Tab 2: Events ----------
 with tabs[1]:
-    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events & Stats</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
-    st.markdown("### 📊 Sponsorship Summary")
-    df = pd.read_sql("SELECT sponsorship, COUNT(*) AS count FROM sponsors GROUP BY sponsorship", conn)
-    st.bar_chart(df.set_index("sponsorship"))
+    st.markdown("### 📅 List of Events")
 
-    st.markdown("### 📋 All Sponsors")
-    full_df = pd.read_sql("SELECT name, apartment, sponsorship, donation FROM sponsors", conn)
-    st.dataframe(full_df, use_container_width=True)
+    events = {
+        "Day 1: Ganapathi Sthapana": "https://example.com/day1",
+        "Day 2: Visesha Alankaram": "https://example.com/day2",
+        "Day 3: Cultural Programs": "https://example.com/day3",
+        "Day 4: Annadanam": "https://example.com/day4",
+        "Day 5: Nimajjanam": "https://example.com/day5"
+    }
+
+    for event, link in events.items():
+        st.markdown(f"- [{event}]({link})")
