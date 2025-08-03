@@ -96,7 +96,7 @@ def send_email(subject, body):
 st.markdown("""
 <style>
     .block-container {
-        padding: 2rem 2rem 2rem 2rem;
+        padding: 2rem;
         border-radius: 10px;
     }
     label > div[data-testid="stMarkdownContainer"] > p:first-child:before {
@@ -152,14 +152,12 @@ with tabs[0]:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
-                # Insert one row per selected sponsorship item; donation only on first
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (name, email, mobile, apartment, item, d))
-                # If no sponsorship but donation given
                 if not selected_items and donation > 0:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
@@ -179,19 +177,13 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
-    if "refresh_events" not in st.session_state:
-        st.session_state.refresh_events = True
-
-    def fetch_events():
+    if "events" not in st.session_state or st.session_state.get("refresh_events", True):
         cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
-        return cursor.fetchall()
-
-    if st.session_state.refresh_events:
-        events = fetch_events()
+        events = cursor.fetchall()
         st.session_state.events = events
         st.session_state.refresh_events = False
     else:
-        events = st.session_state.get("events", [])
+        events = st.session_state.events
 
     if events:
         df_events = pd.DataFrame(events, columns=["ID", "Event Name", "Date", "Link"])
@@ -231,7 +223,6 @@ with tabs[1]:
                         f"Event Title: {new_title}\nEvent Date: {new_date}\nEvent Link: {new_link if new_link else 'N/A'}"
                     )
                     st.session_state.refresh_events = True
-                    st.experimental_rerun()
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
