@@ -11,7 +11,7 @@ import datetime
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
 # ---------- Constants ----------
-BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
+BG_IMAGE_URL = "https://www.google.com/imgres?imgurl=https%3A%2F%2Fnkbmeditation.org%2Fimages%2Fimage%2F67b2195b3ff881a3495342df%2Fimage.png&tbnid=7pJ2Ktdq3IeSVM&vet=10CAQQxiAoAWoXChMIoJ-D963vjgMVAAAAAB0AAAAAEAc..i&imgrefurl=https%3A%2F%2Fnkbmeditation.org%2Fblog%2Fganesh-chaturthi&docid=6j-cBOZduTAoVM&w=800&h=450&itg=1&q=lord%20ganesha%20chaturthi%202025&ved=0CAQQxiAoAWoXChMIoJ-D963vjgMVAAAAAB0AAAAAEAc"
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD = st.secrets["admin_pass"]
 EMAIL_SENDER = st.secrets["email_sender"]
