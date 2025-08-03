@@ -301,7 +301,7 @@ with tabs[2]:
             if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
                 st.session_state.admin_logged_in = True
                 st.success("✅ Admin access granted!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Invalid admin credentials")
     else:
@@ -337,7 +337,7 @@ with tabs[3]:
             if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
                 st.session_state.admin_logged_in = True
                 st.success("✅ Admin access granted!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Invalid admin credentials")
     else:
