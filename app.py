@@ -215,6 +215,11 @@ with tabs[1]:
                     )
                     conn.commit()
                     st.success("✅ Event added successfully!")
+                    # Send email notification about new event
+                    send_email(
+                        "New Ganesh Chaturthi Event Added",
+                        f"Event Title: {new_title}\nEvent Date: {new_date}\nEvent Link: {new_link if new_link else 'N/A'}"
+                    )
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
