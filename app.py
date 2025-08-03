@@ -50,7 +50,7 @@ try:
             id SERIAL PRIMARY KEY,
             item TEXT UNIQUE,
             amount NUMERIC,
-            limit INTEGER
+            sponsor_limit INTEGER
         );
     """)
     conn.commit()
@@ -94,7 +94,7 @@ with tabs[0]:
     cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
     counts = dict(cursor.fetchall())
 
-    cursor.execute("SELECT item, amount, limit FROM sponsorship_items")
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
     rows = cursor.fetchall()
 
     selected_items = []
@@ -183,11 +183,11 @@ with tabs[2]:
             item_row = df[df.id == item_id].iloc[0]
             new_item_name = st.text_input("Item Name", value=item_row["item"])
             new_amount = st.number_input("Amount", value=float(item_row["amount"]))
-            new_limit = st.number_input("Limit", value=int(item_row["limit"]))
+            new_limit = st.number_input("Limit", value=int(item_row["sponsor_limit"]))
 
             if st.button("Update Item"):
                 try:
-                    cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
+                    cursor.execute("UPDATE sponsorship_items SET item=%s, amount=%s, sponsor_limit=%s WHERE id=%s", (new_item_name, new_amount, new_limit, item_id))
                     conn.commit()
                     st.success("✅ Item updated successfully!")
                 except Exception as e:
@@ -201,7 +201,7 @@ with tabs[2]:
                 new_lim = st.number_input("Limit", min_value=1, value=3)
                 if st.form_submit_button("Add Item"):
                     try:
-                        cursor.execute("INSERT INTO sponsorship_items (item, amount, limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
+                        cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)", (new_name, new_amt, new_lim))
                         conn.commit()
                         st.success("✅ New item added!")
                     except Exception as e:
