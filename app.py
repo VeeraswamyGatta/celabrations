@@ -7,7 +7,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import datetime
-from PIL import Image
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
@@ -108,19 +107,6 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-
-# ---------- Ganesh Image Display at the top ----------
-with st.container():
-    try:
-        image = Image.open("ganesh.png")
-        width, height = image.size
-        aspect_ratio = width / height
-        new_height = 350
-        new_width = int(new_height * aspect_ratio)
-        resized_img = image.resize((new_width, new_height))
-        st.image(resized_img, use_container_width=True)
-    except Exception:
-        st.warning("Ganesh image not found or failed to load.")
 
 # ---------- Tabs ----------
 tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
