@@ -1,15 +1,18 @@
-import io
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import psycopg2
+import os
+from io import BytesIO
 from psycopg2.extras import RealDictCursor
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
+# ---------- Constants ----------
 BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD = st.secrets["admin_pass"]
 
+# ---------- DB Connection ----------
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(
@@ -59,34 +62,36 @@ except Exception as e:
 # ---------- Background Styling ----------
 st.markdown(f"""
     <style>
-        /* Full page background image */
         .stApp {{
             background-image: url('{BG_IMAGE_URL}');
+            background-attachment: fixed;
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            height: 100vh;
         }}
         .block-container {{
             background-color: rgba(255, 255, 255, 0.90);
             padding: 2rem;
             border-radius: 10px;
         }}
+        label > div[data-testid="stMarkdownContainer"] > p:first-child:before {{
+            content: "* ";
+            color: red;
+        }}
     </style>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
+# ---------- Tabs ----------
+tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
     st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
-    name = st.text_input("👤 Full Name", placeholder="Enter your full name")
-    email = st.text_input("📧 Email Address", placeholder="Enter your email address")
-    apartment = st.text_input("🏢 Apartment Number", placeholder="Enter your apartment number")
-    mobile = st.text_input("📱 Mobile Number (Optional)", placeholder="Enter your mobile number")
+    name = st.text_input("👤 Full Name")
+    email = st.text_input("📧 Email Address")
+    apartment = st.text_input("🏢 Apartment Number")
+    mobile = st.text_input("📱 Mobile Number (Optional)")
 
     st.markdown("---")
     st.markdown("### 🛕 Sponsorship Items")
@@ -94,7 +99,7 @@ with tabs[0]:
     cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
     counts = dict(cursor.fetchall())
 
-    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
     rows = cursor.fetchall()
 
     selected_items = []
@@ -102,10 +107,9 @@ with tabs[0]:
         item, cost, limit = row
         count = counts.get(item, 0)
         remaining = limit - count
+        st.markdown(f"**{item}** — :orange[${cost}] | Total: {limit}, Remaining: {remaining}")
 
-        st.markdown(f"**{item}** — :orange[${cost}] | Total Limit: {limit}, Remaining: {remaining}")
-
-        if remaining > 0:
+        if count < limit:
             if st.checkbox(f"Sponsor {item}", key=item):
                 selected_items.append(item)
         else:
@@ -116,24 +120,17 @@ with tabs[0]:
     donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     if st.button("✅ Submit"):
-        if not name.strip() or not email.strip() or not apartment.strip():
-            st.error("❗ Name, Email, and Apartment Number are mandatory.")
+        if not name or not email or not apartment:
+            st.error("Name, Email and Apartment Number are mandatory.")
         elif not selected_items and donation == 0:
             st.warning("Please sponsor at least one item or donate an amount.")
         else:
             try:
-                if selected_items:
-                    for idx, item in enumerate(selected_items):
-                        don = donation if idx == 0 else 0
-                        cursor.execute("""
-                            INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (name, email, mobile, apartment, item, don))
-                else:
+                for item in selected_items or [None]:
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, NULL, %s)
-                    """, (name, email, mobile, apartment, donation))
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
                 conn.commit()
                 st.success("🎉 Thank you for your contribution!")
             except Exception as e:
@@ -145,15 +142,12 @@ with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
     st.markdown("### 📅 List of Events")
 
-    cursor.execute("SELECT title, link FROM events ORDER BY id")
+    cursor.execute("SELECT title, link FROM events")
     fetched_events = cursor.fetchall()
 
     for event in fetched_events:
         title, link = event
-        if link:
-            st.markdown(f"- [{title}]({link})")
-        else:
-            st.markdown(f"- {title}")
+        st.markdown(f"- [{title}]({link})")
 
     st.markdown("---")
     st.markdown("### ➕ Add New Event")
@@ -162,7 +156,7 @@ with tabs[1]:
         new_link = st.text_input("Event Link (optional)")
         submitted = st.form_submit_button("Add Event")
         if submitted:
-            if not new_title.strip():
+            if not new_title:
                 st.error("Event title is required.")
             else:
                 try:
@@ -173,74 +167,17 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Tab 3: Statistics (requires login) ----------
+# ---------- Export to Excel ----------
+def to_excel():
+    df = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sponsorship')
+    output.seek(0)
+    return output
+
+# ---------- Tab 3: Admin ----------
 with tabs[2]:
-    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
-
-    if "stat_login" not in st.session_state:
-        st.session_state.stat_login = False
-
-    if not st.session_state.stat_login:
-        with st.form("statistics_login_form"):
-            stat_user = st.text_input("Admin Username", key="stat_user")
-            stat_pwd = st.text_input("Admin Password", type="password", key="stat_pwd")
-            stat_submit = st.form_submit_button("Login")
-
-            if stat_submit:
-                if stat_user == ADMIN_USERNAME and stat_pwd == ADMIN_PASSWORD:
-                    st.session_state.stat_login = True
-                    st.success("✅ Logged in to Statistics!")
-                else:
-                    st.error("❌ Invalid credentials for Statistics")
-    else:
-        cursor.execute("""
-            SELECT
-                si.item,
-                si.amount,
-                si.sponsor_limit,
-                COALESCE(COUNT(s.id), 0) AS sponsors_count,
-                COALESCE(COUNT(s.id), 0) * si.amount AS total_collected
-            FROM sponsorship_items si
-            LEFT JOIN sponsors s ON s.sponsorship = si.item
-            GROUP BY si.id
-            ORDER BY si.id
-        """)
-        summary_data = cursor.fetchall()
-        summary_df = pd.DataFrame(summary_data, columns=["Item", "Amount ($)", "Sponsor Limit", "Number Sponsored", "Total Collected ($)"])
-        st.dataframe(summary_df.style.format({"Amount ($)": "${:.2f}", "Total Collected ($)": "${:.2f}"}))
-        st.bar_chart(summary_df.set_index("Item")["Number Sponsored"])
-
-        st.markdown("---")
-        st.markdown("### 📝 Sponsors List")
-        cursor.execute("""
-            SELECT name, email, apartment, sponsorship, donation
-            FROM sponsors
-            ORDER BY id DESC
-        """)
-        sponsors = cursor.fetchall()
-        sponsors_df = pd.DataFrame(sponsors, columns=["Name", "Email", "Apartment", "Sponsored Item", "Donation ($)"])
-        st.dataframe(sponsors_df.style.format({"Donation ($)": "${:.2f}"}))
-
-        # Export to Excel button
-        def to_excel():
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                summary_df.to_excel(writer, sheet_name='Sponsorship Summary', index=False)
-                sponsors_df.to_excel(writer, sheet_name='Sponsors List', index=False)
-                writer.save()
-                processed_data = output.getvalue()
-            return processed_data
-
-        excel_data = to_excel()
-        st.download_button(
-            label="📥 Download Data as Excel",
-            data=excel_data,
-            file_name='ganesh_sponsorship_data.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-
-# ---------- Tab 4: Admin ----------
-with tabs[3]:
     st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
     with st.form("admin_login"):
         user = st.text_input("Username")
@@ -296,5 +233,9 @@ with tabs[3]:
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to delete item: {e}")
+
+            st.markdown("### 📥 Export Sponsorship Data")
+            excel_data = to_excel()
+            st.download_button(label="📤 Download Excel", data=excel_data, file_name="sponsorship_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.error("❌ Invalid admin credentials")
