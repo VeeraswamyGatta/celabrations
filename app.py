@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 import os
+from psycopg2.extras import RealDictCursor
 
-# --- Streamlit page settings ---
-st.set_page_config(page_title="Ganesh Chaturthi Sponsorship", layout="wide")
+st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
-# --- Sponsorship data ---
+# ---------- Constants ----------
+BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
+
 sponsorship_items = {
     "Ganesh Idol": 300,
     "Priest Donation (2 days)": 200,
@@ -17,8 +19,8 @@ sponsorship_items = {
     "Pooja Essentials (Karpooram, etc.)": 100,
     "Decoration (Marigold, Backdrop, etc.)": 200,
     "Nimarjanam Logistics": 200,
-    "Serving Items (Water, Napkins)": 400,
-    "Miscellaneous": 500
+    "Serving Items (Bowls, Water, Napkins)": 400,
+    "Miscellaneous Items": 500
 }
 
 def calculate_limit(cost):
@@ -26,7 +28,7 @@ def calculate_limit(cost):
 
 sponsor_limits = {item: calculate_limit(cost) for item, cost in sponsorship_items.items()}
 
-# --- Connect to PostgreSQL ---
+# ---------- DB Connection ----------
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(
@@ -38,104 +40,97 @@ def get_connection():
     )
 
 conn = get_connection()
-cur = conn.cursor()
+cursor = conn.cursor()
 
-# --- Create Tables ---
-cur.execute("""
-CREATE TABLE IF NOT EXISTS sponsors (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    UNIQUE(email)
-);
-""")
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS sponsorships (
-    id SERIAL PRIMARY KEY,
-    sponsor_id INTEGER REFERENCES sponsors(id),
-    item TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+# ---------- Table Setup ----------
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sponsors (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        mobile TEXT,
+        apartment TEXT NOT NULL,
+        sponsorship TEXT,
+        donation NUMERIC
+    );
 """)
 conn.commit()
 
-# --- UI Header ---
-st.markdown("<h1 style='text-align:center;color:#E65100;'>Ganesh Chaturthi 2025 Sponsorship Portal</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align:center;'>📍 3C Garage | 📅 Aug 26–30</h4>", unsafe_allow_html=True)
-st.markdown("---")
+# ---------- Background Styling ----------
+st.markdown(f"""
+    <style>
+        .stApp {{
+            background-image: url('{BG_IMAGE_URL}');
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center;
+        }}
+        .block-container {{
+            background-color: rgba(255, 255, 255, 0.90);
+            padding: 2rem;
+            border-radius: 10px;
+        }}
+    </style>
+""", unsafe_allow_html=True)
 
-name = st.text_input("👤 Your Full Name")
-email = st.text_input("📧 Your Email")
+# ---------- Tabs ----------
+tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events"])
 
-st.markdown("### 🙏 Sponsorship Options")
-selected_items = []
+# ---------- Tab 1: Sponsorship ----------
+with tabs[0]:
+    st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
+    st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
-# Get current sponsorship counts
-cur.execute("SELECT item, COUNT(*) FROM sponsorships GROUP BY item;")
-counts = dict(cur.fetchall())
+    name = st.text_input("👤 Full Name")
+    email = st.text_input("📧 Email Address")
+    apartment = st.text_input("🏢 Apartment Number (Required)")
+    mobile = st.text_input("📱 Mobile Number (Optional)")
 
-# Get sponsor names for full items
-cur.execute("""
-SELECT s.name, sp.item
-FROM sponsors s
-JOIN sponsorships sp ON s.id = sp.sponsor_id
-""")
-sponsor_map = {}
-for name_, item_ in cur.fetchall():
-    sponsor_map.setdefault(item_, []).append(name_)
+    st.markdown("---")
+    st.markdown("### 🛕 Sponsorship Items")
 
-for item, cost in sponsorship_items.items():
-    limit = sponsor_limits[item]
-    current = counts.get(item, 0)
-    sponsors = sponsor_map.get(item, [])
+    cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
+    counts = dict(cursor.fetchall())
 
-    st.markdown(f"**{item} – ${cost}** (Limit: {limit}, Sponsored: {current})")
+    selected_items = []
+    for item, cost in sponsorship_items.items():
+        limit = sponsor_limits[item]
+        count = counts.get(item, 0)
 
-    if current < limit:
-        if st.checkbox(f"I want to sponsor '{item}'", key=item):
-            selected_items.append(item)
-    else:
-        st.markdown(f"<span style='color:red;'>Fully Sponsored by: {', '.join(sponsors)}</span>", unsafe_allow_html=True)
+        st.markdown(f"**{item}** — :orange[${cost}] | Limit: {limit}, Sponsored: {count}")
 
-st.markdown("---")
+        if count < limit:
+            if st.checkbox(f"Sponsor {item}", key=item):
+                selected_items.append(item)
+        else:
+            st.markdown(f"🚫 Fully Sponsored")
+        st.markdown("---")
 
-if st.button("✅ Submit Sponsorship"):
-    if not name or not email or not selected_items:
-        st.warning("Please enter all details and select items.")
-    else:
-        try:
-            # Insert sponsor (deduplicated by email)
-            cur.execute("INSERT INTO sponsors (name, email) VALUES (%s, %s) ON CONFLICT(email) DO NOTHING RETURNING id;", (name, email))
-            sponsor_id = cur.fetchone()
-            if sponsor_id is None:
-                cur.execute("SELECT id FROM sponsors WHERE email = %s", (email,))
-                sponsor_id = cur.fetchone()
-            sponsor_id = sponsor_id[0]
+    st.markdown("### 💰 Donation")
+    donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
-            # Insert sponsorships
-            for item in selected_items:
-                cur.execute("INSERT INTO sponsorships (sponsor_id, item) VALUES (%s, %s)", (sponsor_id, item))
-
+    if st.button("✅ Submit"):
+        if not name or not email or not apartment:
+            st.error("Name, Email and Apartment Number are mandatory.")
+        elif not selected_items and donation == 0:
+            st.warning("Please sponsor at least one item or donate an amount.")
+        else:
+            for item in selected_items or [None]:
+                cursor.execute("""
+                    INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
             conn.commit()
-            st.success("Thank you for sponsoring!")
-        except Exception as e:
-            conn.rollback()
-            st.error(f"Error: {e}")
+            st.success("🎉 Thank you for your contribution!")
 
-# --- STATS ---
-st.markdown("## 📊 Sponsorship Statistics")
+# ---------- Tab 2: Events / Statistics ----------
+with tabs[1]:
+    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events & Stats</h1>", unsafe_allow_html=True)
 
+    st.markdown("### 📊 Sponsorship Summary")
+    df = pd.read_sql("SELECT sponsorship, COUNT(*) AS count FROM sponsors GROUP BY sponsorship", conn)
+    st.bar_chart(df.set_index("sponsorship"))
 
-stats = []
-for item, cost in sponsorship_items.items():
-    limit = sponsor_limits[item]
-    count = counts.get(item, 0)
-    remaining = max(limit - count, 0)
-    stats.append({"Item": item, "Sponsored": count, "Remaining": remaining, "Limit": limit})
-
-df_stats = pd.DataFrame(stats)
-
-st.dataframe(df_stats, use_container_width=True)
-
-st.bar_chart(df_stats.set_index("Item")[["Sponsored", "Remaining"]])
+    st.markdown("### 📋 All Sponsors")
+    full_df = pd.read_sql("SELECT name, apartment, sponsorship, donation FROM sponsors", conn)
+    st.dataframe(full_df, use_container_width=True)
