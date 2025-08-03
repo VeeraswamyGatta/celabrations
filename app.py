@@ -134,7 +134,6 @@ with tabs[0]:
             try:
                 # Insert one row per selected item with donation = 0 for those items
                 for idx, item in enumerate(selected_items):
-                    # Only add donation amount once (for first selected item) else 0
                     d = donation if idx == 0 else 0
                     cursor.execute("""
                         INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
@@ -187,7 +186,8 @@ with tabs[1]:
 with tabs[2]:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    df = pd.read_sql("SELECT name, sponsorship, donation FROM sponsors ORDER BY id", conn)
+    # Include email and mobile in the query for display
+    df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
     st.markdown("### 📋 Sponsorship Records")
     st.dataframe(df)
 
