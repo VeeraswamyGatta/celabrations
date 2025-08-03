@@ -157,12 +157,28 @@ with tabs[1]:
     st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
     st.markdown("### 📅 List of Events")
 
-    cursor.execute("SELECT title, link FROM events")
+    cursor.execute("SELECT title, link FROM events ORDER BY id")
     fetched_events = cursor.fetchall()
 
-    for event in fetched_events:
-        title, link = event
-        st.markdown(f"- [{title}]({link})")
+    if fetched_events:
+        # Create dataframe with proper handling of empty/NULL links
+        df_events = pd.DataFrame(fetched_events, columns=["Title", "Link"])
+        # Replace None or empty strings with empty string for display
+        df_events["Link"] = df_events["Link"].apply(lambda x: x if x and x != "*" else "")
+
+        def make_link(row):
+            if row["Link"]:
+                return f"[{row['Title']}]({row['Link']})"
+            else:
+                return row["Title"]
+
+        df_events["Event"] = df_events.apply(make_link, axis=1)
+
+        # Display the event names with links (markdown)
+        for ev in df_events["Event"]:
+            st.markdown(f"- {ev}")
+    else:
+        st.info("No events added yet.")
 
     st.markdown("---")
     st.markdown("### ➕ Add New Event")
@@ -174,8 +190,10 @@ with tabs[1]:
             if not new_title:
                 st.error("Event title is required.")
             else:
+                # Replace empty or '*' link with None to store NULL in DB
+                link_to_store = None if new_link.strip() == "" or new_link.strip() == "*" else new_link.strip()
                 try:
-                    cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, new_link))
+                    cursor.execute("INSERT INTO events (title, link) VALUES (%s, %s)", (new_title, link_to_store))
                     conn.commit()
                     st.success("✅ Event added successfully!")
                 except Exception as e:
