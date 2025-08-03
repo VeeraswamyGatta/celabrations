@@ -177,7 +177,7 @@ with tabs[0]:
 
 # ---------- Tab 2: Events ----------
 with tabs[1]:
-    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>")
+    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>Ganesh Chaturthi Events</h1>", unsafe_allow_html=True)
 
     cursor.execute("SELECT id, title, event_date, link FROM events ORDER BY event_date")
     events = cursor.fetchall()
@@ -221,7 +221,7 @@ with tabs[1]:
 
 # ---------- Tab 3: Statistics ----------
 with tabs[2]:
-    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>")
+    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
     df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
     st.markdown("### 📋 Sponsorship Records")
     st.dataframe(df)
@@ -240,7 +240,7 @@ with tabs[2]:
 
 # ---------- Tab 4: Admin ----------
 with tabs[3]:
-    st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>")
+    st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
 
     if "admin_logged_in" not in st.session_state:
         st.session_state.admin_logged_in = False
