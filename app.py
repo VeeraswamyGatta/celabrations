@@ -5,6 +5,10 @@ import os
 from io import BytesIO
 from psycopg2.extras import RealDictCursor
 import altair as alt
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import datetime
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
@@ -12,6 +16,10 @@ st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 BG_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/Lord_Ganesha_art.png"
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD = st.secrets["admin_pass"]
+EMAIL_SENDER = st.secrets["email_sender"]
+EMAIL_PASSWORD = st.secrets["email_password"]
+SMTP_SERVER = st.secrets["smtp_server"]
+SMTP_PORT = st.secrets["smtp_port"]
 
 # ---------- DB Connection ----------
 @st.cache_resource
@@ -27,38 +35,34 @@ def get_connection():
 conn = get_connection()
 cursor = conn.cursor()
 
-# ---------- Table Setup ----------
-try:
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sponsors (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            mobile TEXT,
-            apartment TEXT NOT NULL,
-            sponsorship TEXT,
-            donation NUMERIC
-        );
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS events (
-            id SERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            link TEXT
-        );
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sponsorship_items (
-            id SERIAL PRIMARY KEY,
-            item TEXT UNIQUE,
-            amount NUMERIC,
-            sponsor_limit INTEGER
-        );
-    """)
-    conn.commit()
-except Exception as e:
-    conn.rollback()
-    st.error(f"❌ Database table creation failed: {e}")
+# ---------- Notification Email Table ----------
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notification_emails (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL
+    );
+""")
+conn.commit()
+
+# ---------- Email Sender Function ----------
+def send_email(subject, body):
+    cursor.execute("SELECT email FROM notification_emails")
+    recipients = [row[0] for row in cursor.fetchall()]
+    
+    if not recipients:
+        return
+
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_SENDER
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        for recipient in recipients:
+            msg['To'] = recipient
+            server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
 
 # ---------- Background Styling ----------
 st.markdown(f"""
@@ -134,6 +138,7 @@ with tabs[0]:
                     """, (name, email, mobile, apartment, item, donation if item == selected_items[0] else 0))
                 conn.commit()
                 st.success("🎉 Thank you for your contribution!")
+                send_email("New Sponsorship Submission", f"Name: {name}\nEmail: {email}\nItems: {', '.join(selected_items)}\nDonation: ${donation}")
             except Exception as e:
                 conn.rollback()
                 st.error(f"❌ Submission failed: {e}")
@@ -199,6 +204,23 @@ with tabs[3]:
     if login:
         if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
             st.success("✅ Admin access granted!")
+
+            st.markdown("### 📩 Notification Email Configuration")
+            with st.form("add_email_form"):
+                new_email = st.text_input("Add Notification Email")
+                if st.form_submit_button("Add Email"):
+                    try:
+                        cursor.execute("INSERT INTO notification_emails (email) VALUES (%s) ON CONFLICT DO NOTHING", (new_email,))
+                        conn.commit()
+                        st.success("✅ Email added")
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to add email: {e}")
+
+            cursor.execute("SELECT email FROM notification_emails")
+            emails = [row[0] for row in cursor.fetchall()]
+            st.markdown("### 📧 Configured Notification Emails")
+            st.write(emails)
 
             st.markdown("### 📊 Sponsorship Items Overview")
             df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
