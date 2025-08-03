@@ -30,11 +30,11 @@ sponsor_limits = {item: calculate_limit(cost) for item, cost in sponsorship_item
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(
-        host=st.secrets["postgres"]["host"],
-        port=st.secrets["postgres"]["port"],
-        dbname=st.secrets["postgres"]["dbname"],
-        user=st.secrets["postgres"]["user"],
-        password=st.secrets["postgres"]["password"]
+        host=st.secrets["postgres_host"],
+        port=st.secrets["postgres_port"],
+        dbname=st.secrets["postgres_dbname"],
+        user=st.secrets["postgres_user"],
+        password=st.secrets["postgres_password"]
     )
 
 conn = get_connection()
