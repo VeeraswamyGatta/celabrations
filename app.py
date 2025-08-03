@@ -4,6 +4,7 @@ import psycopg2
 import os
 from io import BytesIO
 from psycopg2.extras import RealDictCursor
+import altair as alt
 
 st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
 
@@ -81,7 +82,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------- Tabs ----------
-tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "🔐 Admin"])
+tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
 # ---------- Tab 1: Sponsorship ----------
 with tabs[0]:
@@ -167,17 +168,28 @@ with tabs[1]:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-# ---------- Export to Excel ----------
-def to_excel():
-    df = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sponsorship')
-    output.seek(0)
-    return output
-
-# ---------- Tab 3: Admin ----------
+# ---------- Tab 3: Statistics (View Only) ----------
 with tabs[2]:
+    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
+
+    df = pd.read_sql("SELECT name, sponsorship, donation FROM sponsors ORDER BY id", conn)
+    st.markdown("### 📋 Sponsorship Records")
+    st.dataframe(df)
+
+    st.markdown("### 📊 Bar Chart of Sponsorships")
+    chart_data = df["sponsorship"].value_counts().reset_index()
+    chart_data.columns = ["Sponsorship", "Count"]
+
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x=alt.X("Sponsorship", sort="-y"),
+        y="Count",
+        tooltip=["Sponsorship", "Count"]
+    ).properties(width=700)
+
+    st.altair_chart(chart, use_container_width=True)
+
+# ---------- Tab 4: Admin ----------
+with tabs[3]:
     st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Panel</h1>", unsafe_allow_html=True)
     with st.form("admin_login"):
         user = st.text_input("Username")
@@ -233,9 +245,5 @@ with tabs[2]:
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to delete item: {e}")
-
-            st.markdown("### 📥 Export Sponsorship Data")
-            excel_data = to_excel()
-            st.download_button(label="📤 Download Excel", data=excel_data, file_name="sponsorship_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.error("❌ Invalid admin credentials")
