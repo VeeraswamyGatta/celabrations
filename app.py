@@ -83,7 +83,7 @@ def send_email(subject, body):
         msg['From'] = EMAIL_SENDER
         msg['To'] = recipient
         msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(body, 'html'))
         try:
             with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
                 server.starttls()
@@ -170,8 +170,18 @@ with tabs[0]:
                 conn.commit()
                 st.success("🎉 Thank you for your contribution!")
                 send_email(
-                    "New Sponsorship Submission",
-                    f"Name: {name}\nEmail: {email}\nItems: {', '.join(selected_items) if selected_items else 'None'}\nDonation: ${donation}"
+                    "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
+                    f"""
+<b>New Sponsorship Submission</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+  <tr><th>Name</th><td>{name}</td></tr>
+  <tr><th>Email</th><td>{email}</td></tr>
+  <tr><th>Mobile</th><td>{mobile}</td></tr>
+  <tr><th>Apartment</th><td>{apartment}</td></tr>
+  <tr><th>Sponsorship Items</th><td>{', '.join(selected_items) if selected_items else 'N/A'}</td></tr>
+  <tr><th>Donation</th><td>${donation}</td></tr>
+</table>
+"""
                 )
             except Exception as e:
                 conn.rollback()
@@ -308,8 +318,81 @@ with tabs[2]:
         st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
         df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
+
         st.markdown("### 📋 Sponsorship Records")
         st.dataframe(df)
+
+        def send_csv_email(subject, body, df_csv, filename):
+            import io
+            cursor.execute("SELECT email FROM notification_emails")
+            recipients = [row[0] for row in cursor.fetchall()]
+            if not recipients:
+                st.warning("No notification emails configured.")
+                return
+            for recipient in recipients:
+                msg = MIMEMultipart()
+                msg['From'] = EMAIL_SENDER
+                msg['To'] = recipient
+                msg['Subject'] = subject
+                msg.attach(MIMEText(body, 'html'))
+                csv_buffer = io.StringIO()
+                df_csv.to_csv(csv_buffer, index=False)
+                part = MIMEText(csv_buffer.getvalue(), 'csv')
+                part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+                msg.attach(part)
+                try:
+                    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                        server.starttls()
+                        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                        server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
+                except Exception as e:
+                    st.error(f"Failed to send email to {recipient}: {e}")
+
+        if st.button("Send Sponsored Records Report (CSV)"):
+            body = f"""
+<b>Sponsored Records Report (CSV attached)</b><br><br>
+Total records: {len(df)}<br>
+Date: {datetime.date.today()}<br>
+"""
+            send_csv_email(
+                "Ganesh Chaturthi Sponsorship - Sponsored Records CSV Report",
+                body,
+                df,
+                f"sponsored_records_{datetime.date.today()}.csv"
+            )
+            st.success("Sponsored records report sent!")
+
+        # Available items report
+        cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
+        items = cursor.fetchall()
+        cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
+        counts = dict(cursor.fetchall())
+        available_data = []
+        for item, amount, limit in items:
+            count = counts.get(item, 0)
+            remaining = limit - count
+            available_data.append({
+                "Item": item,
+                "Amount": amount,
+                "Total Slots": limit,
+                "Remaining Slots": remaining
+            })
+        df_available = pd.DataFrame(available_data)
+        st.markdown("### 📋 Available Sponsorship Items")
+        st.dataframe(df_available)
+
+        if st.button("Send Available Items Report (CSV)"):
+            body = f"""
+<b>Available Sponsorship Items Report (CSV attached)</b><br><br>
+Date: {datetime.date.today()}<br>
+"""
+            send_csv_email(
+                "Ganesh Chaturthi Sponsorship - Available Items CSV Report",
+                body,
+                df_available,
+                f"available_items_{datetime.date.today()}.csv"
+            )
+            st.success("Available items report sent!")
 
         st.markdown("### 📊 Bar Chart of Sponsorships")
         chart_data = df["sponsorship"].value_counts().reset_index()
@@ -410,3 +493,113 @@ with tabs[3]:
             except Exception as e:
                 conn.rollback()
                 st.error(f"❌ Failed to delete item: {e}")
+
+        st.markdown("---")
+        st.markdown("### ✏️ Edit or Delete Sponsorship Record")
+        df_sponsors = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
+        if not df_sponsors.empty:
+            st.dataframe(df_sponsors, use_container_width=True)
+            sponsor_names = df_sponsors["name"].tolist()
+            selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
+            sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]
+            sponsor_id = int(sponsor_row["id"])
+            edit_name = st.text_input("Name", value=sponsor_row["name"])
+            edit_email = st.text_input("Email", value=sponsor_row["email"])
+            edit_mobile = st.text_input("Mobile", value=sponsor_row["mobile"] or "")
+            edit_apartment = st.text_input("Apartment", value=sponsor_row["apartment"])
+            # Get sponsorship options from sponsorship_items
+            cursor.execute("SELECT item FROM sponsorship_items ORDER BY id")
+            sponsorship_options = [row[0] for row in cursor.fetchall()]
+            sponsorship_options = [None] + sponsorship_options
+            edit_sponsorship = st.selectbox("Sponsorship Item (optional)", sponsorship_options, index=sponsorship_options.index(sponsor_row["sponsorship"]) if sponsor_row["sponsorship"] in sponsorship_options else 0)
+            edit_donation = st.number_input("Donation", value=float(sponsor_row["donation"] or 0))
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Update Sponsorship Record"):
+                    try:
+                        cursor.execute(
+                            "UPDATE sponsors SET name=%s, email=%s, mobile=%s, apartment=%s, sponsorship=%s, donation=%s WHERE id=%s",
+                            (edit_name, edit_email, edit_mobile, edit_apartment, edit_sponsorship, edit_donation, sponsor_id)
+                        )
+                        conn.commit()
+                        st.success("✅ Sponsorship record updated!")
+                        send_email(
+                            "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
+                            f"""
+<b>Sponsorship Record Updated</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+  <tr><th>Name</th><td>{edit_name}</td></tr>
+  <tr><th>Email</th><td>{edit_email}</td></tr>
+  <tr><th>Mobile</th><td>{edit_mobile}</td></tr>
+  <tr><th>Apartment</th><td>{edit_apartment}</td></tr>
+  <tr><th>Sponsorship Item</th><td>{edit_sponsorship if edit_sponsorship else 'N/A'}</td></tr>
+  <tr><th>Donation</th><td>${edit_donation}</td></tr>
+</table>
+"""
+                        )
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to update sponsorship: {e}")
+            with col2:
+                if st.button("Delete Sponsorship Record"):
+                    try:
+                        cursor.execute("DELETE FROM sponsors WHERE id=%s", (sponsor_id,))
+                        conn.commit()
+                        st.success("🗑️ Sponsorship record deleted!")
+                        send_email(
+                            "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
+                            f"""
+<b>Sponsorship Record Deleted</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+  <tr><th>Name</th><td>{sponsor_row['name']}</td></tr>
+  <tr><th>Email</th><td>{sponsor_row['email']}</td></tr>
+  <tr><th>Mobile</th><td>{sponsor_row['mobile']}</td></tr>
+  <tr><th>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
+  <tr><th>Sponsorship Item</th><td>{sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}</td></tr>
+  <tr><th>Donation</th><td>${sponsor_row['donation']}</td></tr>
+</table>
+"""
+                        )
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to delete sponsorship: {e}")
+            # Add new sponsorship record (admin panel)
+            st.markdown("### ➕ Add Sponsorship Record (Admin)")
+            with st.form("add_sponsor_admin_form"):
+                add_name = st.text_input("New Name", key="add_name")
+                add_email = st.text_input("New Email", key="add_email")
+                add_mobile = st.text_input("New Mobile", key="add_mobile")
+                add_apartment = st.text_input("New Apartment", key="add_apartment")
+                add_sponsorship = st.selectbox("New Sponsorship Item (optional)", sponsorship_options, key="add_sponsorship")
+                add_donation = st.number_input("New Donation", min_value=0.0, value=0.0, key="add_donation")
+                add_submit = st.form_submit_button("Add Sponsorship Record")
+                if add_submit:
+                    if not add_name.strip() or not add_email.strip() or not add_apartment.strip():
+                        st.error("Name, Email, and Apartment are required.")
+                    else:
+                        try:
+                            cursor.execute(
+                                "INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation) VALUES (%s, %s, %s, %s, %s, %s)",
+                                (add_name, add_email, add_mobile, add_apartment, add_sponsorship, add_donation)
+                            )
+                            conn.commit()
+                            st.success("✅ Sponsorship record added!")
+                            send_email(
+                                "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
+                                f"""
+<b>Sponsorship Record Added</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+  <tr><th>Name</th><td>{add_name}</td></tr>
+  <tr><th>Email</th><td>{add_email}</td></tr>
+  <tr><th>Mobile</th><td>{add_mobile}</td></tr>
+  <tr><th>Apartment</th><td>{add_apartment}</td></tr>
+  <tr><th>Sponsorship Item</th><td>{add_sponsorship if add_sponsorship else 'N/A'}</td></tr>
+  <tr><th>Donation</th><td>${add_donation}</td></tr>
+</table>
+"""
+                            )
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to add sponsorship: {e}")
+        else:
+            st.info("No sponsorship records found.")
