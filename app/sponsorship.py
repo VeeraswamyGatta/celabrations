@@ -31,7 +31,7 @@ def sponsorship_tab():
 
     import re
     name = st.text_input("👤 Full Name")
-    apartment = st.text_input("🏢 Apartment Number")
+    apartment = st.text_input("🏢 Apartment Number", help="Apartment number must be between 100 and 1600")
     email = st.text_input("📧 Email Address (optional)", help="Enter Email to Subscribe the notifications to Your Email")
     mobile = st.text_input("📱 Mobile Number (Optional)", help="Enter 10-digit US phone number without country code")
 
