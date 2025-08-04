@@ -33,7 +33,7 @@ def sponsorship_tab():
     name = st.text_input("👤 Full Name")
     apartment = st.text_input("🏢 Apartment Number")
     email = st.text_input("📧 Email Address (optional)", help="Enter Email to Subscribe the notifications to Your Email")
-    mobile = st.text_input("📱 Mobile Number (Optional, US format)")
+    mobile = st.text_input("📱 Mobile Number (Optional)", help="Enter 10-digit US phone number without country code")
 
     st.markdown("---")
     st.markdown("### 🛕 Sponsorship Items")
