@@ -1,29 +1,30 @@
 import streamlit as st
 TABLE_HEADER_STYLE = "background-color:#6A1B9A;color:#fff;text-transform:capitalize;"
+
+# Custom button styles for admin section
+st.markdown('''
+    <style>
+    .stButton > button {
+        background-color: #6A1B9A !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.5em;
+    }
+    .stButton > button:hover {
+        background-color: #8e24aa !important;
+        color: #fff !important;
+    }
+    </style>
+''', unsafe_allow_html=True)
 import pandas as pd
 from .db import get_connection
 from .email_utils import send_email
 
-def admin_tab():
-    # Ensure the left menu always shows when admin_tab is called
+def admin_tab(menu="Sponsorship Items"):
     st.session_state['active_tab'] = 'Admin'
     conn = get_connection()
     cursor = conn.cursor()
-
-
-
-    # Only show sidebar menu if admin_tab is the active tab
-    show_admin_menu = st.session_state.get('active_tab', None) == 'Admin'
-    if show_admin_menu:
-        menu = st.sidebar.radio(
-            "Admin Sections",
-            (
-                "Sponsorship Items",
-                "Edit/Delete Sponsorship Record"
-            )
-        )
-    else:
-        menu = "Sponsorship Items"
 
     if menu == "Sponsorship Items":
         st.markdown("<h2 style='color: #6A1B9A;'>Sponsorship Items Overview</h2>", unsafe_allow_html=True)

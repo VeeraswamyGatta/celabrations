@@ -11,7 +11,22 @@ def sponsorship_tab():
     st.session_state['active_tab'] = 'Sponsorship'
     conn = get_connection()
     cursor = conn.cursor()
-    st.markdown("<h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>
+        <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
+            <span style='margin-right: 18px;'>
+                <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
+                <b>26-08-2025 - 30-08-2025</b>
+            </span>
+            <span>
+                <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
+                <b>3C Garagge</b>
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
 
     import re

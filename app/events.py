@@ -1,4 +1,21 @@
 import streamlit as st
+
+# Custom button styles for events section
+st.markdown('''
+    <style>
+    .stButton > button {
+        background-color: #2E7D32 !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.5em;
+    }
+    .stButton > button:hover {
+        background-color: #388e3c !important;
+        color: #fff !important;
+    }
+    </style>
+''', unsafe_allow_html=True)
 import pandas as pd
 import datetime
 from .db import get_connection
