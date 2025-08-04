@@ -21,7 +21,7 @@ def sponsorship_tab():
             </span>
             <span>
                 <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
-                <b>3C Garagge</b>
+                <b>3C Garagge</b> <span style='font-size:1.2em; vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Ragava)</span>
             </span>
         </div>
         """,
