@@ -71,7 +71,7 @@ def sponsorship_tab():
         )
         if sponsor_names:
             st.markdown(
-                f"<span style='font-size: 0.95em;'>Sponsored Names: "
+                f"<span style='font-size: 0.95em;'>Sponsored Names: <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> "
                 + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
                 + "</span>",
                 unsafe_allow_html=True
