@@ -81,7 +81,11 @@ def sponsorship_tab():
             if st.checkbox(f"Sponsor {item}", key=item):
                 selected_items.append(item)
         else:
-            st.markdown(f"🚫 Fully Sponsored")
+            st.markdown(
+                f"<span style='color:#d32f2f;font-weight:bold;'>Slots are not available. This item is fully sponsored! <span style='font-size:1.1em;vertical-align:middle;'>�</span></span>",
+                unsafe_allow_html=True
+            )
+            st.checkbox(f"Sponsor {item}", key=item, disabled=True)
         st.markdown("---")
 
     st.markdown("### 💰 Donation")
