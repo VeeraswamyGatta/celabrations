@@ -37,7 +37,9 @@ def create_tables(conn):
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         event_date DATE,
-        link TEXT
+        event_time TIME,
+        link TEXT,
+        description TEXT
     );
     """)
     conn.commit()

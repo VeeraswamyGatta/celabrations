@@ -17,19 +17,36 @@ def sponsorship_tab():
         <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
             <span style='margin-right: 18px;'>
                 <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
-                <b>26-08-2025 - 30-08-2025</b>
-            </span>
+                <b>26-Aug-2025 - 30-Aug-2025</b>
+            </span><br/>
             <span>
                 <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
-                <b>3C Garagge</b> <span style='font-size:1.2em; vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Ragava)</span>
+                <b>3C Garagge</b> <span style='font-size:1.2em;vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Raghava)</span>
             </span>
         </div>
         """,
         unsafe_allow_html=True
     )
-    st.markdown("### 🙏 Choose one or more items to sponsor, or donate an amount of your choice.")
+    st.markdown("### 🙏 Sponsor items or donate an amount of your choice.")
 
     import re
+    # Post-submit page logic
+    if 'show_submission' not in st.session_state:
+        st.session_state['show_submission'] = False
+    if 'submitted_data' not in st.session_state:
+        st.session_state['submitted_data'] = None
+
+    if st.session_state['show_submission'] and st.session_state['submitted_data']:
+        st.success("🎉 Thank you for your contribution!")
+        st.markdown("### Submitted Details")
+        df = pd.DataFrame([st.session_state['submitted_data']])
+        st.table(df)
+        if st.button("Home"):
+            st.session_state['show_submission'] = False
+            st.session_state['submitted_data'] = None
+            st.rerun()
+        return
+
     name = st.text_input("👤 Full Name")
     apartment = st.text_input("🏢 Apartment Number", help="Apartment number must be between 100 and 1600")
     email = st.text_input("📧 Email Address (optional)", help="Enter Email to Subscribe the notifications to Your Email")
@@ -143,7 +160,16 @@ def sponsorship_tab():
                         VALUES (%s, %s, %s, %s, NULL, %s)
                     """, (name_val, email, phone_fmt.strip(), apartment, donation))
                 conn.commit()
-                st.success("🎉 Thank you for your contribution!")
+                # Prepare submitted data for display
+                st.session_state['submitted_data'] = {
+                    "Name": name_val,
+                    "Email": email,
+                    "Mobile": phone_fmt.strip(),
+                    "Apartment": apartment,
+                    "Sponsorship Items": ', '.join(selected_items) if selected_items else 'N/A',
+                    "Donation": f"${donation}"
+                }
+                st.session_state['show_submission'] = True
                 # Send email to the submitter (if provided) and all unique sponsor emails
                 recipients = []
                 if email.strip():
@@ -167,6 +193,7 @@ def sponsorship_tab():
 """,
                     recipients
                 )
+                st.rerun()
             except Exception as e:
                 conn.rollback()
                 st.error(f"❌ Submission failed: {e}")
