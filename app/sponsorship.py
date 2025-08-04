@@ -34,7 +34,33 @@ def sponsorship_tab():
         item, cost, limit = row
         count = counts.get(item, 0)
         remaining = limit - count
-        st.markdown(f"**{item}** — :orange[${cost}] | Total: {limit}, Remaining: {remaining}")
+        # Fetch sponsor names for this item
+        cursor.execute("SELECT name FROM sponsors WHERE sponsorship = %s", (item,))
+        sponsor_names = [n[0] for n in cursor.fetchall()]
+        if remaining > 0:
+            remaining_str = f"<span class='blink' style='color:#d32f2f;font-weight:bold'>{remaining}</span>"
+        else:
+            remaining_str = f"{remaining}"
+        st.markdown(
+            """
+            <style>
+            .blink {
+                animation: blinker 1s linear infinite;
+            }
+            @keyframes blinker {
+                50% { opacity: 0; }
+            }
+            </style>
+            """ + f"**{item}** — :orange[${cost}] | Total Slots: {limit}, Remaining Slots Available: {remaining_str}",
+            unsafe_allow_html=True
+        )
+        if sponsor_names:
+            st.markdown(
+                f"<span style='font-size: 0.95em;'>Sponsored Names: "
+                + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
+                + "</span>",
+                unsafe_allow_html=True
+            )
 
         if remaining > 0:
             if st.checkbox(f"Sponsor {item}", key=item):

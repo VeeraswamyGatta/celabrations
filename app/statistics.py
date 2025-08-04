@@ -74,12 +74,46 @@ Date: {datetime.date.today()}<br>
         available_data.append({
             "Item": item,
             "Amount": amount,
-            "Total Slots": limit,
-            "Remaining Slots": remaining
+            "Total Slot": limit,
+            "Remaining Slot Available": remaining
         })
     df_available = pd.DataFrame(available_data)
     st.markdown("### 📋 Available Sponsorship Items")
     st.dataframe(df_available)
+
+    # Bar chart for item total and remaining slots
+    st.markdown("### 📊 Sponsorship Item Slot Distribution")
+    if not df_available.empty:
+        bar_data = pd.melt(
+            df_available,
+            id_vars=["Item"],
+            value_vars=["Total Slot", "Remaining Slot Available"],
+            var_name="Slot Type",
+            value_name="Count"
+        )
+        bar_chart = alt.Chart(bar_data).mark_bar().encode(
+            x=alt.X('Item:N', title='Sponsorship Item'),
+            y=alt.Y('Count:Q', title='Slots'),
+            color=alt.Color('Slot Type:N', title='Slot Type'),
+            column=alt.Column('Slot Type:N', title=None, header=alt.Header(labelOrient='bottom')),
+            tooltip=['Item', 'Slot Type', 'Count']
+        ).properties(width=120, height=300)
+        st.altair_chart(bar_chart, use_container_width=True)
+
+    # Bar chart for total donation per person
+    st.markdown("### 💵 Total Donation by Person")
+    donation_df = df.groupby("name", as_index=False)["donation"].sum()
+    donation_df = donation_df[donation_df["donation"] > 0]
+    if not donation_df.empty:
+        donation_chart = alt.Chart(donation_df).mark_bar().encode(
+            x=alt.X("name:N", title="Name", sort="-y"),
+            y=alt.Y("donation:Q", title="Total Donation ($)"),
+            color=alt.Color("name:N", legend=None),
+            tooltip=["name", "donation"]
+        ).properties(width=700)
+        st.altair_chart(donation_chart, use_container_width=True)
+    else:
+        st.info("No donations recorded yet.")
 
     if st.button("Send Available Items Report (CSV)"):
         body = f"""
@@ -94,14 +128,4 @@ Date: {datetime.date.today()}<br>
         )
         st.success("Available items report sent!")
 
-    st.markdown("### 📊 Bar Chart of Sponsorships")
-    chart_data = df["sponsorship"].value_counts().reset_index()
-    chart_data.columns = ["Sponsorship", "Count"]
-
-    chart = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X("Sponsorship", sort="-y"),
-        y="Count",
-        tooltip=["Sponsorship", "Count"]
-    ).properties(width=700)
-
-    st.altair_chart(chart, use_container_width=True)
+    # Removed Bar Chart of Sponsorships as requested
