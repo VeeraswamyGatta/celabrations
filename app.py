@@ -48,7 +48,7 @@ if "admin_logged_in" not in st.session_state:
 # ---------- Sidebar Navigation with Option Menu ----------
 with st.sidebar:
     main_menu = option_menu(
-        "Main Menu",
+        "Menu",
         ["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"],
         icons=["gift", "calendar-event", "bar-chart", "lock"],
         menu_icon="cast",
