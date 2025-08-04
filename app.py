@@ -1,5 +1,6 @@
 
 import streamlit as st
+from streamlit_option_menu import option_menu
 import datetime
 from app.db import get_connection, create_tables
 from app.sponsorship import sponsorship_tab
@@ -42,26 +43,30 @@ st.markdown("""
 if "admin_logged_in" not in st.session_state:
     st.session_state.admin_logged_in = False
 
-# ---------- Tabs ----------
-tabs = st.tabs(["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"])
 
-# ---------- Tab 1: Sponsorship ----------
-with tabs[0]:
+
+# ---------- Sidebar Navigation with Option Menu ----------
+with st.sidebar:
+    main_menu = option_menu(
+        "Main Menu",
+        ["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"],
+        icons=["gift", "calendar-event", "bar-chart", "lock"],
+        menu_icon="cast",
+        default_index=0,
+        orientation="vertical"
+    )
+
+if main_menu == "🎉 Sponsorship & Donation":
     sponsorship_tab()
-
-# ---------- Tab 2: Events ----------
-with tabs[1]:
+elif main_menu == "📅 Events":
     events_tab()
-
-# ---------- Tab 3: Statistics (with admin authentication) ----------
-with tabs[2]:
+elif main_menu == "📊 Statistics":
     if not st.session_state.admin_logged_in:
         st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Login Required</h1>", unsafe_allow_html=True)
         with st.form("admin_login_stats"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
             login = st.form_submit_button("Login")
-
         if login:
             if user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
@@ -71,15 +76,12 @@ with tabs[2]:
                 st.error("❌ Invalid admin credentials")
     else:
         statistics_tab()
-
-# ---------- Tab 4: Admin ----------
-with tabs[3]:
+elif main_menu == "🔐 Admin":
     if not st.session_state.admin_logged_in:
         with st.form("admin_login_admin"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
             login = st.form_submit_button("Login")
-
         if login:
             if user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
@@ -88,4 +90,13 @@ with tabs[3]:
             else:
                 st.error("❌ Invalid admin credentials")
     else:
-        admin_tab()
+        # Admin submenu
+        admin_menu = option_menu(
+            "Admin Sections",
+            ["Sponsorship Items", "Edit/Delete Sponsorship Record"],
+            icons=["list-task", "pencil-square"],
+            menu_icon="gear",
+            default_index=0,
+            orientation="vertical"
+        )
+        admin_tab(menu=admin_menu)
