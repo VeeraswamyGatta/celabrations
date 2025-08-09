@@ -18,7 +18,7 @@ def sponsorship_tab():
         <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
             <span style='margin-right: 18px;'>
                 <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
-                <b>26th August 2025 to 30th August 2025 (5 days)</b>
+                <b>26th Aug 2025 to 30th Aug 2025 (5 days)</b>
             </span><br/>
             <span>
                 <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
@@ -44,6 +44,42 @@ Your generous support will help make this year’s festivities vibrant and memor
 <br>
 <div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>
 Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
+</div>
+""", unsafe_allow_html=True)
+
+    # --- High-level statistics ---
+    # Get all sponsorship items
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    items = cursor.fetchall()
+    total_slots = sum([row[2] for row in items])
+    # Get all sponsors
+    cursor.execute("SELECT sponsorship, donation FROM sponsors")
+    sponsor_rows = cursor.fetchall()
+    # Calculate remaining slots
+    slots_filled = {}
+    for s, _ in sponsor_rows:
+        if s:
+            slots_filled[s] = slots_filled.get(s, 0) + 1
+    remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
+    # Total donated amount
+    total_donated = sum([row[1] for row in sponsor_rows if row[1]])
+    # Remaining amount to be collected
+    total_required = sum([row[1]*row[2] for row in items])
+    remaining_amount = total_required - total_donated
+    st.markdown(f"""
+<style>
+.blink-red {{
+    color: #d32f2f;
+    font-weight: bold;
+    animation: blinker 1s linear infinite;
+}}
+@keyframes blinker {{
+    50% {{ opacity: 0; }}
+}}
+</style>
+<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
+<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): <span class='blink-red'>{remaining_slots}</span> / <span style='color:#2E7D32;'>{total_slots}</span><br>
+<b>Total Donated Amount:</b> <span style='color:#2E7D32;'>${total_donated}</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -81,7 +117,6 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     ])
     selected_items = []
     with tab1:
-        st.markdown("<span style='font-size:1.08em; font-weight:bold; color:#2E7D32;'>🛕 Sponsorship Items</span>", unsafe_allow_html=True)
         cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
         counts = dict(cursor.fetchall())
         cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
@@ -129,7 +164,14 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 st.markdown("---")
 
     with tab2:
-        st.markdown("<span style='font-size:1.08em; font-weight:bold; color:#1565c0;'>💰 Donation</span>", unsafe_allow_html=True)
+        # Show donor table before donation field
+        cursor.execute("SELECT name, donation FROM sponsors WHERE donation IS NOT NULL AND donation > 0 ORDER BY donation DESC")
+        donor_rows = cursor.fetchall()
+        if donor_rows:
+            donor_df = pd.DataFrame(donor_rows, columns=["Donor Name", "Amount"])
+            donor_df["Amount"] = donor_df["Amount"].apply(lambda x: f"${x}")
+            st.markdown("<b>🙏 Donors</b>", unsafe_allow_html=True)
+            st.table(donor_df)
         donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     def validate_us_phone(phone):
