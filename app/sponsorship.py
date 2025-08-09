@@ -37,7 +37,12 @@ We warmly welcome you to join this year’s celebration by sponsoring any of the
 <br>
 This year’s celebration is estimated to cost approximately <span style='color:#d32f2f; font-weight:bold;'>$2,800–$3,000</span>, based on last year’s expenses.<br>
 <br>
-Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.
+Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.<br>
+<br>
+<span style='color:#1565C0;'>For donation amount, transfer to any one of these Zelle accounts:</span><br>
+<b>Purna</b>: +1 (720) 900-7378<br>
+<b>Ganesh</b>: +1 (469) 768-3939<br>
+<b>Supreeth</b>: +91 99660 22221
 </span>
 """, unsafe_allow_html=True)
 
