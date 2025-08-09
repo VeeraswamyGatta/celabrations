@@ -39,7 +39,13 @@ Your generous support will help make this year’s festivities vibrant and memor
 </span>
 """, unsafe_allow_html=True)
 
-    st.markdown("### 🙏 Sponsor items or donate an amount of your choice.")
+
+    st.markdown("""
+<br>
+<div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>
+Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
+</div>
+""", unsafe_allow_html=True)
 
     import re
     # Post-submit page logic
@@ -59,13 +65,16 @@ Your generous support will help make this year’s festivities vibrant and memor
             st.rerun()
         return
 
-    name = st.text_input("👤 Full Name")
-    apartment = st.text_input("🏢 Apartment Number", help="Apartment number must be between 100 and 1600")
-    email = st.text_input("📧 Email Address (optional)", help="Enter Email to Subscribe the notifications to Your Email")
-    mobile = st.text_input("📱 Mobile Number (Optional)", help="Enter 10-digit US phone number without country code")
+    name = st.text_input("👤 Your Full Name", placeholder="Enter your full name")
+    apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
+    email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
+    mobile = st.text_input("📱 Mobile Number (optional)", help="10-digit US phone number (no country code)", placeholder="E.g., 5121234567")
 
     st.markdown("---")
 
+    st.markdown("""
+<div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>🙏 Sponsor items or donate an amount of your choice.</div>
+""", unsafe_allow_html=True)
     tab1, tab2 = st.tabs([
         "🛕 Sponsorship Items",
         "💰 Donation"
