@@ -14,16 +14,18 @@ def sponsorship_tab():
 
     st.markdown(
         f"""
-        <h1 style='text-align: center; color: #E65100;'>Terrazzo Ganesh Celebrations 2025</h1>
-        <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
-            <span style='margin-right: 18px;'>
-                <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
-                <b>26th Aug 2025 to 30th Aug 2025 (5 days)</b>
-            </span><br/>
-            <span>
-                <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
-                <b>3C Garagge</b> <span style='font-size:1.2em;vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Raghava)</span>
-            </span>
+        <div style='padding-top: 0.2em; margin-top: 0; margin-bottom: 0;'>
+            <h1 style='text-align: center; color: #E65100; margin-top: 0; margin-bottom: 0.18em;'>Terrazzo Ganesh Celebrations 2025</h1>
+            <div style='text-align: center; font-size: 1.1em; color: #444; margin-top: -0.1em; margin-bottom: 0.18em;'>
+                <span style='margin-right: 18px;'>
+                    <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
+                    <b>26th Aug 2025 to 30th Aug 2025 (5 days)</b>
+                </span><br/>
+                <span>
+                    <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
+                    <b>3C Garagge</b> <span style='font-size:1.2em;vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Raghava)</span>
+                </span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True
