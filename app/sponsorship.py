@@ -14,9 +14,9 @@ def sponsorship_tab():
 
     st.markdown(
         f"""
-        <div style='padding-top: 0.2em; margin-top: 0; margin-bottom: 0;'>
-            <h1 style='text-align: center; color: #E65100; margin-top: 0; margin-bottom: 0.18em;'>Terrazzo Ganesh Celebrations 2025</h1>
-            <div style='text-align: center; font-size: 1.1em; color: #444; margin-top: -0.1em; margin-bottom: 0.18em;'>
+        <div style='text-align: center; margin-top: -1.2em; margin-bottom: -0.7em;'>
+            <h1 style='color: #E65100; margin: 0 0 0.04em 0; font-size: 2.1em; line-height: 1.05;'>Terrazzo Ganesh Celebrations 2025</h1>
+            <div style='font-size: 1.08em; color: #444; margin: 0;'>
                 <span style='margin-right: 18px;'>
                     <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
                     <b>26th Aug 2025 to 30th Aug 2025 (5 days)</b>
