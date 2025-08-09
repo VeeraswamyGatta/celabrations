@@ -9,7 +9,7 @@ from app.statistics import statistics_tab
 from app.admin import admin_tab
 
 
-st.set_page_config(page_title="Ganesh Chaturthi 2025", page_icon="🙏", layout="wide")
+st.set_page_config(page_title="Terrazzo Ganesh Celebrations 2025", page_icon="🙏", layout="wide")
 # Add Ganesh image to the top-right corner
 # Show Ganesh image in the top-right corner using st.image and CSS
 from PIL import Image
