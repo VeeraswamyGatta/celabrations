@@ -47,41 +47,6 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
 </div>
 """, unsafe_allow_html=True)
 
-    # --- High-level statistics ---
-    # Get all sponsorship items
-    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
-    items = cursor.fetchall()
-    total_slots = sum([row[2] for row in items])
-    # Get all sponsors
-    cursor.execute("SELECT sponsorship, donation FROM sponsors")
-    sponsor_rows = cursor.fetchall()
-    # Calculate remaining slots
-    slots_filled = {}
-    for s, _ in sponsor_rows:
-        if s:
-            slots_filled[s] = slots_filled.get(s, 0) + 1
-    remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
-    # Total donated amount
-    total_donated = sum([row[1] for row in sponsor_rows if row[1]])
-    # Remaining amount to be collected
-    total_required = sum([row[1]*row[2] for row in items])
-    remaining_amount = total_required - total_donated
-    st.markdown(f"""
-<style>
-.blink-red {{
-    color: #d32f2f;
-    font-weight: bold;
-    animation: blinker 1s linear infinite;
-}}
-@keyframes blinker {{
-    50% {{ opacity: 0; }}
-}}
-</style>
-<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
-<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): <span class='blink-red'>{remaining_slots}</span> / <span style='color:#2E7D32;'>{total_slots}</span><br>
-<b>Total Donated Amount:</b> <span style='color:#2E7D32;'>${total_donated}</span>
-</div>
-""", unsafe_allow_html=True)
 
     import re
     # Post-submit page logic
@@ -111,6 +76,36 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     st.markdown("""
 <div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>🙏 Sponsor items or donate an amount of your choice.</div>
 """, unsafe_allow_html=True)
+
+    # --- High-level statistics (moved here) ---
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    items = cursor.fetchall()
+    total_slots = sum([row[2] for row in items])
+    cursor.execute("SELECT sponsorship, donation FROM sponsors")
+    sponsor_rows = cursor.fetchall()
+    slots_filled = {}
+    for s, _ in sponsor_rows:
+        if s:
+            slots_filled[s] = slots_filled.get(s, 0) + 1
+    remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
+    total_donated = sum([row[1] for row in sponsor_rows if row[1]])
+    st.markdown(f"""
+<style>
+.blink-red {{
+    color: #d32f2f;
+    font-weight: bold;
+    animation: blinker 1s linear infinite;
+}}
+@keyframes blinker {{
+    50% {{ opacity: 0; }}
+}}
+</style>
+<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
+<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): <span class='blink-red'>{remaining_slots}</span> / <span style='color:#2E7D32;'>{total_slots}</span><br>
+<b>Total Donated Amount:</b> <span style='color:#2E7D32;'>${total_donated}</span>
+</div>
+""", unsafe_allow_html=True)
+
     tab1, tab2 = st.tabs([
         "🛕 Sponsorship Items",
         "💰 Donation"
