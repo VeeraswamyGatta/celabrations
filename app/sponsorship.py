@@ -11,13 +11,14 @@ def sponsorship_tab():
     st.session_state['active_tab'] = 'Sponsorship'
     conn = get_connection()
     cursor = conn.cursor()
+
     st.markdown(
         f"""
         <h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>
         <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
             <span style='margin-right: 18px;'>
                 <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
-                <b>26-Aug-2025 - 30-Aug-2025</b>
+                <b>26th August 2025 to 30th August 2025 (5 days)</b>
             </span><br/>
             <span>
                 <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
@@ -27,6 +28,17 @@ def sponsorship_tab():
         """,
         unsafe_allow_html=True
     )
+
+    st.markdown("""
+<span style='font-size:1.15em; font-weight:bold;'>
+We warmly invite you to be part of this celebration by sponsoring any of the items listed below based on the slots available or contributing an amount of your choice as a donation.<br>
+<br>
+The total estimated cost for this year’s celebrations is approximately <span style='color:#d32f2f;'>$2,800–$3,000</span> (based on last year’s event expenses)<br>
+<br>
+Your generous support will help make this year’s festivities vibrant and memorable for our entire community.
+</span>
+""", unsafe_allow_html=True)
+
     st.markdown("### 🙏 Sponsor items or donate an amount of your choice.")
 
     import re
@@ -53,60 +65,63 @@ def sponsorship_tab():
     mobile = st.text_input("📱 Mobile Number (Optional)", help="Enter 10-digit US phone number without country code")
 
     st.markdown("---")
-    st.markdown("### 🛕 Sponsorship Items")
 
-    cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
-    counts = dict(cursor.fetchall())
-
-    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
-    rows = cursor.fetchall()
-
+    tab1, tab2 = st.tabs([
+        "🛕 Sponsorship Items",
+        "💰 Donation"
+    ])
     selected_items = []
-    for row in rows:
-        item, cost, limit = row
-        count = counts.get(item, 0)
-        remaining = limit - count
-        # Fetch sponsor names for this item
-        cursor.execute("SELECT name FROM sponsors WHERE sponsorship = %s", (item,))
-        sponsor_names = [n[0] for n in cursor.fetchall()]
-        if remaining > 0:
-            remaining_str = f"<span class='blink' style='color:#d32f2f;font-weight:bold'>{remaining}</span>"
-        else:
-            remaining_str = f"{remaining}"
-        st.markdown(
-            """
-            <style>
-            .blink {
-                animation: blinker 1s linear infinite;
-            }
-            @keyframes blinker {
-                50% { opacity: 0; }
-            }
-            </style>
-            """ + f"**{item}** — :orange[${cost}] | Total Slots: {limit}, Remaining Slots Available: {remaining_str}",
-            unsafe_allow_html=True
-        )
-        if sponsor_names:
+    with tab1:
+        st.markdown("<span style='font-size:1.08em; font-weight:bold; color:#2E7D32;'>🛕 Sponsorship Items</span>", unsafe_allow_html=True)
+        cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
+        counts = dict(cursor.fetchall())
+        cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
+        rows = cursor.fetchall()
+        for row in rows:
+            item, cost, limit = row
+            count = counts.get(item, 0)
+            remaining = limit - count
+            # Fetch sponsor names for this item
+            cursor.execute("SELECT name FROM sponsors WHERE sponsorship = %s", (item,))
+            sponsor_names = [n[0] for n in cursor.fetchall()]
+            if remaining > 0:
+                remaining_str = f"<span class='blink' style='color:#d32f2f;font-weight:bold'>{remaining}</span>"
+            else:
+                remaining_str = f"{remaining}"
             st.markdown(
-                f"<span style='font-size: 0.95em;'>Sponsored Names: <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> "
-                + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
-                + "</span>",
+                """
+                <style>
+                .blink {
+                    animation: blinker 1s linear infinite;
+                }
+                @keyframes blinker {
+                    50% { opacity: 0; }
+                }
+                </style>
+                """ + f"**{item}** — :orange[${cost} Approx.] | Total Slots: {limit}, Remaining Slots Available: {remaining_str}",
                 unsafe_allow_html=True
             )
+            if sponsor_names:
+                st.markdown(
+                    f"<span style='font-size: 0.95em;'>Sponsored Names: <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> "
+                    + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
+                    + "</span>",
+                    unsafe_allow_html=True
+                )
+            if remaining > 0:
+                if st.checkbox(f"Sponsor {item}", key=item):
+                    selected_items.append(item)
+                st.markdown("---")
+            else:
+                st.markdown(
+                    f"<span style='color:#d32f2f;font-weight:bold;'>Slots are not available. This item is fully sponsored! <span style='font-size:1.1em;vertical-align:middle;'>🙏</span></span>",
+                    unsafe_allow_html=True
+                )
+                st.markdown("---")
 
-        if remaining > 0:
-            if st.checkbox(f"Sponsor {item}", key=item):
-                selected_items.append(item)
-        else:
-            st.markdown(
-                f"<span style='color:#d32f2f;font-weight:bold;'>Slots are not available. This item is fully sponsored! <span style='font-size:1.1em;vertical-align:middle;'>�</span></span>",
-                unsafe_allow_html=True
-            )
-            st.checkbox(f"Sponsor {item}", key=item, disabled=True)
-        st.markdown("---")
-
-    st.markdown("### 💰 Donation")
-    donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
+    with tab2:
+        st.markdown("<span style='font-size:1.08em; font-weight:bold; color:#1565c0;'>💰 Donation</span>", unsafe_allow_html=True)
+        donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     def validate_us_phone(phone):
         digits = re.sub(r'\D', '', phone)
@@ -117,7 +132,7 @@ def sponsorship_tab():
     def format_name(name):
         return ' '.join(word.capitalize() for word in name.strip().split())
 
-    if st.button("✅ Submit"):
+    if st.button("✅ Submit", key="sponsorship_submit"):
         errors = []
         name_val = format_name(name)
         if not name_val:
