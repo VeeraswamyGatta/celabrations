@@ -31,7 +31,29 @@ def statistics_tab():
     cursor = conn.cursor()
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
-    df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
+    # Build sponsorship records with type and split item/donation
+    raw_df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
+    records = []
+    for _, row in raw_df.iterrows():
+        if row['sponsorship']:
+            records.append({
+                'Name': row['name'],
+                'Email': row['email'],
+                'Mobile': row['mobile'],
+                'Sponsorship Type': 'Item',
+                'Item/Donation': row['sponsorship'],
+                'Amount': ''
+            })
+        if row['donation'] and row['donation'] > 0:
+            records.append({
+                'Name': row['name'],
+                'Email': row['email'],
+                'Mobile': row['mobile'],
+                'Sponsorship Type': 'Donation',
+                'Item/Donation': 'General Donation',
+                'Amount': f"${row['donation']}"
+            })
+    df = pd.DataFrame(records)
     st.markdown("### 📋 Sponsorship Records")
     st.dataframe(df)
 
@@ -119,7 +141,7 @@ Date: {datetime.date.today()}<br>
 
     # Bar chart for total donation per person
     st.markdown("### 💵 Total Donation by Person")
-    donation_df = df.groupby("name", as_index=False)["donation"].sum()
+    donation_df = raw_df.groupby("name", as_index=False)["donation"].sum()
     donation_df = donation_df[donation_df["donation"] > 0]
     if not donation_df.empty:
         donation_chart = alt.Chart(donation_df).mark_bar().encode(

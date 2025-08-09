@@ -40,7 +40,9 @@ Your generous support will help make this year’s festivities vibrant and memor
 """, unsafe_allow_html=True)
 
 
-    st.markdown("""
+    # Only show info message if not on submitted details page
+    if not (st.session_state.get('show_submission') and st.session_state.get('submitted_data')):
+        st.markdown("""
 <br>
 <div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>
 Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
@@ -58,8 +60,54 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     if st.session_state['show_submission'] and st.session_state['submitted_data']:
         st.success("🎉 Thank you for your contribution!")
         st.markdown("### Submitted Details")
-        df = pd.DataFrame([st.session_state['submitted_data']])
-        st.table(df)
+        submitted_data = st.session_state['submitted_data']
+        details_rows = []
+        name = submitted_data.get("Name", "")
+        email = submitted_data.get("Email", "")
+        mobile = submitted_data.get("Mobile", "")
+        apartment = submitted_data.get("Apartment", "")
+        # Handle sponsorship items
+        items = submitted_data.get("Sponsorship Items", [])
+        if items:
+            item_list = items if isinstance(items, list) else [items]
+            conn = get_connection()
+            cursor = conn.cursor()
+            format_strings = ','.join(['%s'] * len(item_list))
+            cursor.execute(f"SELECT item, amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(item_list))
+            item_amounts = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+            for item in item_list:
+                amt, limit = item_amounts.get(item, (0, 1))
+                per_item_amt = round(amt / limit, 2) if limit else amt
+                details_rows.append({
+                    "Type": "Sponsorship",
+                    "Item/Donation": item,
+                    "Amount": f"${per_item_amt}"
+                })
+        # Handle donation
+        donation = submitted_data.get("Donation", None)
+        if donation:
+            details_rows.append({
+                "Type": "Donation",
+                "Item/Donation": "General Donation",
+                "Amount": donation
+            })
+        # Show table
+        if details_rows:
+            df = pd.DataFrame(details_rows)
+            st.table(df)
+        # Show total
+        total = submitted_data.get("Contributed Amount (Approx)", None)
+        if total:
+                st.markdown(f"**Total Contribution:** <span style='color:#2E7D32;font-size:1.1em;font-weight:bold'>{total}</span>", unsafe_allow_html=True)
+        # Show user info in a visually distinct row with icons
+        st.markdown(f"""
+<div style='display: flex; flex-direction: row; align-items: center; gap: 2.5em; margin-top: 1.2em; margin-bottom: 1.2em; font-size: 1.13em;'>
+    <span title='Name'>👤 <b>{name}</b></span>
+    <span title='Apartment'>🏢 <b>{apartment}</b></span>
+    <span title='Email'>📧 <b>{email}</b></span>
+    <span title='Mobile'>📱 <b>{mobile}</b></span>
+</div>
+""", unsafe_allow_html=True)
         if st.button("Home"):
             st.session_state['show_submission'] = False
             st.session_state['submitted_data'] = None
@@ -71,23 +119,21 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
     mobile = st.text_input("📱 Mobile Number (optional)", help="10-digit US phone number (no country code)", placeholder="E.g., 5121234567")
 
-    st.markdown("---")
-
-    st.markdown("""
-<div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>🙏 Sponsor items or donate an amount of your choice.</div>
-""", unsafe_allow_html=True)
-
-    # --- High-level statistics (moved here) ---
+    # --- High-level statistics ---
+    # Get all sponsorship items
     cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
     items = cursor.fetchall()
     total_slots = sum([row[2] for row in items])
+    # Get all sponsors
     cursor.execute("SELECT sponsorship, donation FROM sponsors")
     sponsor_rows = cursor.fetchall()
+    # Calculate remaining slots
     slots_filled = {}
     for s, _ in sponsor_rows:
         if s:
             slots_filled[s] = slots_filled.get(s, 0) + 1
     remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
+    # Total donated amount
     total_donated = sum([row[1] for row in sponsor_rows if row[1]])
     blink_style = """
 <style>
@@ -121,6 +167,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     ])
     selected_items = []
     with tab1:
+        st.markdown("<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'><b>Major Sponsorship items are listed below</b></div>", unsafe_allow_html=True)
         cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
         counts = dict(cursor.fetchall())
         cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
@@ -218,6 +265,15 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 st.error(err)
         else:
             try:
+                # Calculate sponsorship item total as (amount / sponsor_limit) for each selected item
+                sponsorship_total = 0
+                if selected_items:
+                    format_strings = ','.join(['%s'] * len(selected_items))
+                    cursor.execute(f"SELECT amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
+                    sponsorship_total = sum([row[0] / row[1] if row[1] else 0 for row in cursor.fetchall()])
+                contributed_amount = sponsorship_total + (donation if donation else 0)
+                # Format to 2 decimal places for display and email
+                contributed_amount = round(contributed_amount, 2)
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
@@ -231,14 +287,19 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                     """, (name_val, email, phone_fmt.strip(), apartment, donation))
                 conn.commit()
                 # Prepare submitted data for display
-                st.session_state['submitted_data'] = {
+                submitted_data = {
                     "Name": name_val,
                     "Email": email,
                     "Mobile": phone_fmt.strip(),
-                    "Apartment": apartment,
-                    "Sponsorship Items": ', '.join(selected_items) if selected_items else 'N/A',
-                    "Donation": f"${donation}"
+                    "Apartment": apartment
                 }
+                if selected_items:
+                    submitted_data["Sponsorship Items"] = selected_items.copy()
+                if donation > 0:
+                    submitted_data["Donation"] = f"${donation}"
+                if (selected_items or donation > 0) and contributed_amount:
+                    submitted_data["Contributed Amount (Approx)"] = f"${contributed_amount}"
+                st.session_state['submitted_data'] = submitted_data
                 st.session_state['show_submission'] = True
                 # Send email to the submitter (if provided) and all unique sponsor emails
                 recipients = []
@@ -248,17 +309,34 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
                 # Avoid duplicate emails
                 recipients = list({e for e in recipients + sponsor_emails})
+                # Build email table rows in detailed format
+                email_rows = f"""
+  <tr><th>Name</th><td>{name_val}</td></tr>
+  <tr><th>Email</th><td>{email}</td></tr>
+  <tr><th>Mobile</th><td>{phone_fmt.strip()}</td></tr>
+  <tr><th>Apartment</th><td>{apartment}</td></tr>
+"""
+                # Add each sponsored item as a row with amount
+                if selected_items:
+                    format_strings = ','.join(['%s'] * len(selected_items))
+                    cursor.execute(f"SELECT item, amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
+                    item_amounts = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+                    for item in selected_items:
+                        amt, limit = item_amounts.get(item, (0, 1))
+                        per_item_amt = round(amt / limit, 2) if limit else amt
+                        email_rows += f"  <tr><th>Sponsorship Item</th><td>{item}</td><td><b>${per_item_amt}</b></td></tr>\n"
+                # Add donation as a row if present
+                if donation > 0:
+                    email_rows += f"  <tr><th>Donation</th><td>General Donation</td><td><b>${donation}</b></td></tr>\n"
+                # Add total contributed amount
+                if contributed_amount:
+                    email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
                 send_email(
                     "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
                     f"""
 <b>New Sponsorship Submission</b><br><br>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-  <tr><th>Name</th><td>{name_val}</td></tr>
-  <tr><th>Email</th><td>{email}</td></tr>
-  <tr><th>Mobile</th><td>{phone_fmt.strip()}</td></tr>
-  <tr><th>Apartment</th><td>{apartment}</td></tr>
-  <tr><th>Sponsorship Items</th><td>{', '.join(selected_items) if selected_items else 'N/A'}</td></tr>
-  <tr><th>Donation</th><td>${donation}</td></tr>
+{email_rows}
 </table>
 """,
                     recipients
