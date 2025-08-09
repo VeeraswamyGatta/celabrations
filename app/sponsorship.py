@@ -14,7 +14,7 @@ def sponsorship_tab():
 
     st.markdown(
         f"""
-        <h1 style='text-align: center; color: #E65100;'>Ganesh Chaturthi Sponsorship 2025</h1>
+        <h1 style='text-align: center; color: #E65100;'>Terrazzo Ganesh Celebrations 2025</h1>
         <div style='text-align: center; font-size: 1.1em; color: #444; margin-bottom: 0.5em;'>
             <span style='margin-right: 18px;'>
                 <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
@@ -30,12 +30,12 @@ def sponsorship_tab():
     )
 
     st.markdown("""
-<span style='font-size:1.15em; font-weight:bold;'>
-We warmly invite you to be part of this celebration by sponsoring any of the items listed below based on the slots available or contributing an amount of your choice as a donation.<br>
+<span style='font-size:1.13em; font-family: Times New Roman, Calibri, Verdana, serif;'>
+We warmly welcome you to join this year’s celebration by sponsoring any of the major items listed below. The cost for each item will be shared among the selected sponsors based on available slots. You may also contribute any amount of your choice as a donation.<br>
 <br>
-The total estimated cost for this year’s celebrations is approximately <span style='color:#d32f2f;'>$2,800–$3,000</span> (based on last year’s event expenses)<br>
+This year’s celebration is estimated to cost approximately <span style='color:#d32f2f; font-weight:bold;'>$2,800–$3,000</span>, based on last year’s expenses.<br>
 <br>
-Your generous support will help make this year’s festivities vibrant and memorable for our entire community.
+Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.
 </span>
 """, unsafe_allow_html=True)
 
