@@ -1,3 +1,14 @@
+def create_transfers_table(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transfers (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT
+        )
+    ''')
+    conn.commit()
 import psycopg2
 import streamlit as st
 

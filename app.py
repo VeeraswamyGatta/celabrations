@@ -58,8 +58,11 @@ def get_admin_password():
     return f"{ADMIN_PASSWORD_BASE}{today_day}"
 
 # ---------- DB Setup ----------
+
 conn = get_connection()
 create_tables(conn)
+from app.db import create_transfers_table
+create_transfers_table(conn)
 
 
 # ---------- Styling ----------
@@ -131,8 +134,12 @@ elif main_menu == "🔐 Admin":
         # Admin submenu
         admin_menu = option_menu(
             "Admin Sections",
-            ["Sponsorship Items", "Edit/Delete Sponsorship Record"],
-            icons=["list-task", "pencil-square"],
+            [
+                "Sponsorship Items",
+                "Edit/Delete Sponsorship Record",
+                "Edit/Delete Transfer Accounts"
+            ],
+            icons=["list-task", "pencil-square", "person-lines-fill"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"
