@@ -42,7 +42,7 @@ Your generous support will help make this year’s festivities vibrant and memor
 
     st.markdown("""
 <br>
-<div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>
+<div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>
 Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
 </div>
 """, unsafe_allow_html=True)
@@ -74,7 +74,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     st.markdown("---")
 
     st.markdown("""
-<div style='font-size:1.08em; color:#2E7D32; margin-bottom: 0.5em;'>🙏 Sponsor items or donate an amount of your choice.</div>
+<div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>🙏 Sponsor items or donate an amount of your choice.</div>
 """, unsafe_allow_html=True)
 
     # --- High-level statistics (moved here) ---
