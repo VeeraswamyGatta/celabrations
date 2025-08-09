@@ -89,19 +89,28 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
             slots_filled[s] = slots_filled.get(s, 0) + 1
     remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
     total_donated = sum([row[1] for row in sponsor_rows if row[1]])
-    st.markdown(f"""
+    blink_style = """
 <style>
-.blink-red {{
+.blink-red {
     color: #d32f2f;
     font-weight: bold;
     animation: blinker 1s linear infinite;
-}}
-@keyframes blinker {{
-    50% {{ opacity: 0; }}
-}}
+}
+@keyframes blinker {
+    50% { opacity: 0; }
+}
 </style>
+"""
+    if remaining_slots > 0:
+        slots_html = f"<span class='blink-red'>{remaining_slots}</span>"
+        style_html = blink_style
+    else:
+        slots_html = f"<span style='color:#d32f2f;font-weight:bold'>{remaining_slots}</span>"
+        style_html = ""
+    st.markdown(f"""
+{style_html}
 <div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
-<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): <span class='blink-red'>{remaining_slots}</span> / <span style='color:#2E7D32;'>{total_slots}</span><br>
+<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
 <b>Total Donated Amount:</b> <span style='color:#2E7D32;'>${total_donated}</span>
 </div>
 """, unsafe_allow_html=True)
