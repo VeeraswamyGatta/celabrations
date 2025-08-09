@@ -41,48 +41,7 @@ Your generous support will help us make this year’s festivities vibrant and me
 </span>
 """, unsafe_allow_html=True)
 
-    # --- Display Zelle/Transfer Info ---
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("<h4 style='color:#1565C0;'>Donation Transfer Accounts</h4>", unsafe_allow_html=True)
-    cursor.execute("SELECT id, name, phone, email FROM transfers")
-    transfers = cursor.fetchall()
-    for t in transfers:
-        name, phone, email = t[1], t[2], t[3]
-        contact = phone if phone else email if email else ""
-        st.markdown(f"<b>{name}</b>: {contact}", unsafe_allow_html=True)
-    # --- Edit Transfer Info ---
-    if st.session_state.get('admin_logged_in'):
-        with st.expander("Edit Donation Transfer Accounts"):
-            st.markdown("Add or update transfer account info below.")
-            with st.form("add_transfer_form"):
-                new_name = st.text_input("Name")
-                new_phone = st.text_input("Phone Number")
-                new_email = st.text_input("Email")
-                add_btn = st.form_submit_button("Add Account")
-                if add_btn and new_name.strip():
-                    cursor.execute("INSERT INTO transfers (name, phone, email) VALUES (?, ?, ?)", (new_name.strip(), new_phone.strip(), new_email.strip()))
-                    conn.commit()
-                    st.success("Account added!")
-                    st.rerun()
-            # Optionally, allow editing/deleting existing records
-            for t in transfers:
-                tid, name, phone, email = t
-                with st.form(f"edit_transfer_{tid}", clear_on_submit=True):
-                    up_name = st.text_input("Name", value=name, key=f"name_{tid}")
-                    up_phone = st.text_input("Phone", value=phone, key=f"phone_{tid}")
-                    up_email = st.text_input("Email", value=email, key=f"email_{tid}")
-                    update_btn = st.form_submit_button("Update")
-                    del_btn = st.form_submit_button("Delete")
-                    if update_btn:
-                        cursor.execute("UPDATE transfers SET name=?, phone=?, email=? WHERE id=?", (up_name, up_phone, up_email, tid))
-                        conn.commit()
-                        st.success("Updated!")
-                        st.rerun()
-                    if del_btn:
-                        cursor.execute("DELETE FROM transfers WHERE id=?", (tid,))
-                        conn.commit()
-                        st.success("Deleted!")
-                        st.rerun()
+
 
 
     # Only show info message if not on submitted details page
@@ -136,6 +95,14 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 "Item/Donation": "General Donation",
                 "Amount": donation
             })
+            # Show static Zelle accounts for donation at submitted details level only
+            st.markdown("""
+<div style='font-size:1.05em; color:#1565C0; margin-bottom: 0.5em;'><b>For donation amount transfers, please use any of the following Zelle accounts:</b><br>
+<b>Purna:</b> +1 (720) 900-7378<br>
+<b>Ganesh:</b> +1 (469) 768-3939<br>
+<b>Supreeth:</b> +1 (704) 388-6770<br>
+</div>
+""", unsafe_allow_html=True)
         # Show table
         if details_rows:
             df = pd.DataFrame(details_rows)
@@ -376,6 +343,13 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 # Add total contributed amount
                 if contributed_amount:
                     email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
+                # Add static Zelle account info to email if donation is present
+                transfer_info_html = ""
+                if donation > 0:
+                    transfer_info_html = "<br><b>For donation amount transfers, please use any of the following Zelle accounts:</b><br>"
+                    transfer_info_html += "<b>Purna:</b> +1 (720) 900-7378<br>"
+                    transfer_info_html += "<b>Ganesh:</b> +1 (469) 768-3939<br>"
+                    transfer_info_html += "<b>Supreeth:</b> +1 (704) 388-6770<br>"
                 send_email(
                     "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
                     f"""
@@ -383,6 +357,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
 {email_rows}
 </table>
+{transfer_info_html}
 """,
                     recipients
                 )
