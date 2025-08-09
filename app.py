@@ -9,7 +9,7 @@ from app.statistics import statistics_tab
 from app.admin import admin_tab
 
 
-st.set_page_config(page_title="Ganesh Chaturthi 2025", layout="wide")
+st.set_page_config(page_title="Ganesh Chaturthi 2025", page_icon="🙏", layout="wide")
 
 # ---------- Constants ----------
 
