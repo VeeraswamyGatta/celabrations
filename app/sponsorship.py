@@ -68,6 +68,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         details_rows = []
         name = submitted_data.get("Name", "")
         email = submitted_data.get("Email", "")
+        gothram = submitted_data.get("Gothram", "")
         mobile = submitted_data.get("Mobile", "")
         apartment = submitted_data.get("Apartment", "")
         # Handle sponsorship items
@@ -117,6 +118,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     <span title='Name'>👤 <b>{name}</b></span>
     <span title='Apartment'>🏢 <b>{apartment}</b></span>
     <span title='Email'>📧 <b>{email}</b></span>
+    <span title='Gothram'>🪔 <b>{gothram}</b></span>
     <span title='Mobile'>📱 <b>{mobile}</b></span>
 </div>
 """, unsafe_allow_html=True)
@@ -129,6 +131,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     name = st.text_input("👤 Your Full Name", placeholder="Enter your full name")
     apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
     email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
+    gothram = st.text_input("🪔 Gothram (optional)", help="Enter your family Gothram (optional)", placeholder="E.g., Bharadwaja, Kashyapa, etc.")
     mobile = st.text_input("📱 Mobile Number (optional)", help="10-digit US phone number (no country code)", placeholder="E.g., 5121234567")
 
     # --- High-level statistics ---
@@ -289,19 +292,20 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 for idx, item in enumerate(selected_items):
                     d = donation if idx == 0 else 0
                     cursor.execute("""
-                        INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (name_val, email, phone_fmt.strip(), apartment, item, d))
+                        INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
                 if not selected_items and donation > 0:
                     cursor.execute("""
-                        INSERT INTO sponsors (name, email, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, NULL, %s)
-                    """, (name_val, email, phone_fmt.strip(), apartment, donation))
+                        INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                        VALUES (%s, %s, %s, %s, %s, NULL, %s)
+                    """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
                 conn.commit()
                 # Prepare submitted data for display
                 submitted_data = {
                     "Name": name_val,
                     "Email": email,
+                    "Gothram": gothram,
                     "Mobile": phone_fmt.strip(),
                     "Apartment": apartment
                 }
@@ -325,6 +329,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 email_rows = f"""
   <tr><th>Name</th><td>{name_val}</td></tr>
   <tr><th>Email</th><td>{email}</td></tr>
+  <tr><th>Gothram</th><td>{gothram}</td></tr>
   <tr><th>Mobile</th><td>{phone_fmt.strip()}</td></tr>
   <tr><th>Apartment</th><td>{apartment}</td></tr>
 """
@@ -343,13 +348,11 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 # Add total contributed amount
                 if contributed_amount:
                     email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
-                # Add static Zelle account info to email if donation is present
-                transfer_info_html = ""
-                if donation > 0:
-                    transfer_info_html = "<br><b>For donation amount transfers, please use any of the following Zelle accounts:</b><br>"
-                    transfer_info_html += "<b>Purna:</b> +1 (720) 900-7378<br>"
-                    transfer_info_html += "<b>Ganesh:</b> +1 (469) 768-3939<br>"
-                    transfer_info_html += "<b>Supreeth:</b> +1 (704) 388-6770<br>"
+                # Always include donation details section in the email
+                transfer_info_html = "<br><b>For donation amount transfers, please use any of the following Zelle accounts:</b><br>"
+                transfer_info_html += "<b>Purna:</b> +1 (720) 900-7378<br>"
+                transfer_info_html += "<b>Ganesh:</b> +1 (469) 768-3939<br>"
+                transfer_info_html += "<b>Supreeth:</b> +1 (704) 388-6770<br>"
                 send_email(
                     "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
                     f"""

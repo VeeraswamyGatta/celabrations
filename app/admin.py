@@ -90,6 +90,7 @@ def admin_tab(menu="Sponsorship Items"):
             edit_name = st.text_input("Name", value=sponsor_row["name"])
             edit_apartment = st.text_input("Apartment Number (100-1600)", value=sponsor_row["apartment"])
             edit_email = st.text_input("Email Address (optional)", value=sponsor_row["email"] or "", help="Enter Email to Subscribe the notifications to Your Email")
+            edit_gothram = st.text_input("Gothram (optional)", value=sponsor_row["gothram"] if "gothram" in sponsor_row and sponsor_row["gothram"] is not None else "", key=f"edit_gothram_{sponsor_id}")
             edit_mobile = st.text_input("Mobile (optional, US format)", value=sponsor_row["mobile"] or "")
             cursor.execute("SELECT item FROM sponsorship_items ORDER BY id")
             sponsorship_options = [row[0] for row in cursor.fetchall()]
@@ -135,8 +136,8 @@ def admin_tab(menu="Sponsorship Items"):
                     else:
                         try:
                             cursor.execute(
-                                "UPDATE sponsors SET name=%s, email=%s, mobile=%s, apartment=%s, sponsorship=%s, donation=%s WHERE id=%s",
-                                (edit_name, edit_email, phone_fmt.strip(), edit_apartment, edit_sponsorship, edit_donation, sponsor_id)
+                                "UPDATE sponsors SET name=%s, email=%s, mobile=%s, apartment=%s, gothram=%s, sponsorship=%s, donation=%s WHERE id=%s",
+                                (edit_name, edit_email, phone_fmt.strip(), edit_apartment, edit_gothram, edit_sponsorship, edit_donation, sponsor_id)
                             )
                             conn.commit()
                             st.success("✅ Sponsorship record updated!")
@@ -148,12 +149,13 @@ def admin_tab(menu="Sponsorship Items"):
                                 f"""
 <b>Sponsorship Record Updated</b><br><br>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{edit_name}</td></tr>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{edit_email}</td></tr>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{phone_fmt.strip()}</td></tr>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{edit_apartment}</td></tr>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{edit_sponsorship if edit_sponsorship else 'N/A'}</td></tr>
-  <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${edit_donation}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{edit_name}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{edit_email}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Gothram</th><td>{edit_gothram}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{phone_fmt.strip()}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{edit_apartment}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{edit_sponsorship if edit_sponsorship else 'N/A'}</td></tr>
+        <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${edit_donation}</td></tr>
 </table>
 """,
                                 sponsor_emails
