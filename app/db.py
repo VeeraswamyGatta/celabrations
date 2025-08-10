@@ -1,14 +1,3 @@
-def create_transfers_table(conn):
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS transfers (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            phone TEXT,
-            email TEXT
-        )
-    ''')
-    conn.commit()
 import psycopg2
 import streamlit as st
 
@@ -21,6 +10,36 @@ def get_connection():
         user=st.secrets["postgres_user"],
         password=st.secrets["postgres_password"]
     )
+
+def create_payment_details_table():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payment_details (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            amount NUMERIC(10,2) NOT NULL,
+            date DATE NOT NULL,
+            comments TEXT
+        )
+    ''')
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+create_payment_details_table()
+
+def create_transfers_table(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transfers (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT
+        )
+    ''')
+    conn.commit()
 
 def create_tables(conn):
     cursor = conn.cursor()

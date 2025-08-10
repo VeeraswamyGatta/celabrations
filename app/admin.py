@@ -25,6 +25,80 @@ def admin_tab(menu="Sponsorship Items"):
     st.session_state['active_tab'] = 'Admin'
     conn = get_connection()
     cursor = conn.cursor()
+    if menu == "PayPal Payment Details":
+        st.markdown("<h2 style='color: #6A1B9A;'>💳 PayPal Payment Details</h2>", unsafe_allow_html=True)
+        # Display table
+        df_pay = pd.read_sql("SELECT id, name, amount, date, comments FROM payment_details ORDER BY date DESC, id DESC", conn)
+        if not df_pay.empty:
+            display_df = df_pay.drop(columns=["id"])
+            st.dataframe(display_df, use_container_width=True)
+            # Show total amount below the table
+            total_amount = display_df["amount"].sum()
+            st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
+            csv = display_df.to_csv(index=False)
+            st.download_button("Export as CSV", csv, file_name="payment_details.csv", mime="text/csv")
+            # Edit/Delete section
+            st.markdown("<h3 style='color: #6A1B9A;'>✏️ Edit or Delete Payment Detail</h3>", unsafe_allow_html=True)
+            pay_names = df_pay["name"].tolist()
+            selected_name = st.selectbox("Select Payment Record (by Name)", pay_names)
+            pay_row = df_pay[df_pay.name == selected_name].iloc[0]
+            pay_id = int(pay_row["id"])
+            col1, col2 = st.columns(2)
+            with col1:
+                edit_name = st.text_input("Name", value=pay_row["name"])
+                edit_amount = st.number_input("Amount", min_value=0.0, value=float(pay_row["amount"]), format="%.2f")
+            with col2:
+                edit_date = st.date_input("Date", value=pay_row["date"])
+                edit_comments = st.text_input("Comments", value=pay_row["comments"] or "")
+            col3, col4 = st.columns(2)
+            with col3:
+                if st.button("Update Payment Detail"):
+                    try:
+                        cursor.execute(
+                            "UPDATE payment_details SET name=%s, amount=%s, date=%s, comments=%s WHERE id=%s",
+                            (edit_name, edit_amount, edit_date, edit_comments, pay_id)
+                        )
+                        conn.commit()
+                        st.success("✅ Payment detail updated!")
+                        st.rerun()
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to update payment detail: {e}")
+            with col4:
+                if st.button("Delete Payment Detail"):
+                    try:
+                        cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
+                        conn.commit()
+                        st.success("🗑️ Payment detail deleted!")
+                        st.rerun()
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to delete payment detail: {e}")
+        else:
+            st.info("No payment details found.")
+        # Add new payment detail
+        st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Payment Detail</h3>", unsafe_allow_html=True)
+        with st.form("add_payment_detail_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                name = st.text_input("Name", key="add_pay_name")
+                amount = st.number_input("Amount", min_value=0.0, format="%.2f", key="add_pay_amount")
+            with col2:
+                date = st.date_input("Date", key="add_pay_date")
+                comments = st.text_input("Comments", key="add_pay_comments")
+            if st.form_submit_button("Add Payment Detail"):
+                try:
+                    cursor.execute(
+                        "INSERT INTO payment_details (name, amount, date, comments) VALUES (%s, %s, %s, %s)",
+                        (name, amount, date, comments)
+                    )
+                    conn.commit()
+                    st.success("✅ Payment detail added!")
+                    st.rerun()
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Failed to add payment detail: {e}")
+        return
 
     if menu == "Sponsorship Items":
         st.markdown("<h2 style='color: #6A1B9A;'>Sponsorship Items Overview</h2>", unsafe_allow_html=True)
@@ -79,10 +153,48 @@ def admin_tab(menu="Sponsorship Items"):
         st.markdown("<h2 style='color: #6A1B9A;'>✏️ Edit or Delete Sponsorship Record</h2>", unsafe_allow_html=True)
         df_sponsors = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
         if not df_sponsors.empty:
-            # Hide 'id' column in display
-            display_df = df_sponsors.drop(columns=["id"])
+            # Add Type column
+            display_df = df_sponsors.copy()
+            def get_type(row):
+                if row['sponsorship'] and str(row['sponsorship']).strip():
+                    return 'Sponsorship'
+                elif row['donation'] and float(row['donation']) > 0:
+                    return 'Donation'
+                else:
+                    return ''
+            display_df['Type'] = display_df.apply(get_type, axis=1)
+            # Pre-fetch sponsorship item amounts into a dict
+            cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+            item_amounts = {}
+            for row in cursor.fetchall():
+                item, amount, sponsor_limit = row
+                try:
+                    per_sponsor = float(amount) / int(sponsor_limit) if sponsor_limit else float(amount)
+                except Exception:
+                    per_sponsor = float(amount)
+                item_amounts[item] = per_sponsor
+            # Compute a single amount column
+            def get_amount(row):
+                if row['Type'] == 'Sponsorship':
+                    item = row['sponsorship']
+                    return item_amounts.get(item, 0.0) if item else 0.0
+                elif row['Type'] == 'Donation':
+                    try:
+                        return float(row['donation']) if row['donation'] not in (None, '', 0, '0') else 0.0
+                    except:
+                        return 0.0
+                return 0.0
+            display_df['Donation/Sponsorship Amount'] = display_df.apply(get_amount, axis=1)
+            # Remove original 'sponsorship', 'donation', and 'id' columns
+            display_df = display_df.drop(columns=['sponsorship', 'donation', 'id'])
+            # Reorder columns
+            col_order = ['name', 'email', 'mobile', 'apartment', 'gothram', 'Type', 'Donation/Sponsorship Amount']
+            display_df = display_df[[c for c in col_order if c in display_df.columns]]
             display_df = display_df.rename(columns={col: col.replace('_', ' ').title() for col in display_df.columns})
             st.dataframe(display_df, use_container_width=True)
+            # Show total amount
+            total_amt = display_df['Donation/Sponsorship Amount'].sum()
+            # Total display removed as requested
             sponsor_names = df_sponsors["name"].tolist()
             selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
             sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]

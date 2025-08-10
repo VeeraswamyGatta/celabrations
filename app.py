@@ -137,9 +137,10 @@ elif main_menu == "🔐 Admin":
             [
                 "Sponsorship Items",
                 "Edit/Delete Sponsorship Record",
-                "Manage Notification Emails"
+                "Manage Notification Emails",
+                "PayPal Payment Details"
             ],
-            icons=["list-task", "pencil-square", "envelope-fill"],
+            icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"
