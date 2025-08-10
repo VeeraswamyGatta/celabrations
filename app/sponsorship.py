@@ -132,6 +132,7 @@ Your generous support will help us make this year’s festivities vibrant and me
 Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
 </div>
 """, unsafe_allow_html=True)
+    name = st.text_input("👤 Your Name", help="Please enter your full name", placeholder="E.g., Raghava Rao")
     apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
     email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
     gothram = st.text_input("🪔 Gothram (optional)", help="Enter your family Gothram (optional)", placeholder="E.g., Bharadwaja, Kashyapa, etc.")

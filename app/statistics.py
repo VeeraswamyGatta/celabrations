@@ -71,10 +71,10 @@ def statistics_tab():
     # Add total row to CSV export
     def send_csv_email(subject, body, df_csv, filename):
         import io
-        cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
+        cursor.execute("SELECT email FROM notification_emails WHERE email IS NOT NULL AND email != ''")
         recipients = list({row[0].strip() for row in cursor.fetchall() if row[0]})
         if not recipients:
-            st.warning("No sponsor emails found.")
+            st.warning("No notification emails found.")
             return
         EMAIL_SENDER = st.secrets["email_sender"]
         EMAIL_PASSWORD = st.secrets["email_password"]
