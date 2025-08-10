@@ -137,9 +137,9 @@ elif main_menu == "🔐 Admin":
             [
                 "Sponsorship Items",
                 "Edit/Delete Sponsorship Record",
-                "Edit/Delete Transfer Accounts"
+                "Manage Notification Emails"
             ],
-            icons=["list-task", "pencil-square", "person-lines-fill"],
+            icons=["list-task", "pencil-square", "envelope-fill"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"

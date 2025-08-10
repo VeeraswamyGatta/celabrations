@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 from .db import get_connection
 from .email_utils import send_email
+from .notification_utils import get_notification_emails
 import altair as alt
 
 # Place all sponsorship and donation logic here
@@ -112,6 +113,15 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         total = submitted_data.get("Contributed Amount (Approx)", None)
         if total:
                 st.markdown(f"**Total Contribution:** <span style='color:#2E7D32;font-size:1.1em;font-weight:bold'>{total}</span>", unsafe_allow_html=True)
+        # Show PayPal payment section in UI
+        paypal_link = st.secrets.get("paypal_link", "")
+        paypal_icon = "<img src='https://www.paypalobjects.com/webstatic/icon/pp258.png' alt='PayPal' style='height:32px;vertical-align:middle;margin-right:8px;'/>"
+        paypal_html = "<br><b>To pay your sponsorship or donation, please use the PayPal link below:</b><br>"
+        if paypal_link:
+            paypal_html += f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
+        else:
+            paypal_html += "<span style='color:#d32f2f;'>PayPal link not available.</span>"
+        st.markdown(paypal_html, unsafe_allow_html=True)
         # Show user info in a visually distinct row with icons
         st.markdown(f"""
 <div style='display: flex; flex-direction: row; align-items: center; gap: 2.5em; margin-top: 1.2em; margin-bottom: 1.2em; font-size: 1.13em;'>
@@ -317,14 +327,12 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                     submitted_data["Contributed Amount (Approx)"] = f"${contributed_amount}"
                 st.session_state['submitted_data'] = submitted_data
                 st.session_state['show_submission'] = True
-                # Send email to the submitter (if provided) and all unique sponsor emails
-                recipients = []
+                # Send email to notification_emails and the submitter (if provided)
+                notification_emails = get_notification_emails()
+                recipients = list(notification_emails)
                 if email.strip():
                     recipients.append(email.strip())
-                cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-                sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
-                # Avoid duplicate emails
-                recipients = list({e for e in recipients + sponsor_emails})
+                recipients = list(set(recipients))
                 # Build email table rows in detailed format
                 email_rows = f"""
   <tr><th>Name</th><td>{name_val}</td></tr>
@@ -348,11 +356,14 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 # Add total contributed amount
                 if contributed_amount:
                     email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
-                # Always include donation details section in the email
-                transfer_info_html = "<br><b>For donation amount transfers, please use any of the following Zelle accounts:</b><br>"
-                transfer_info_html += "<b>Purna:</b> +1 (720) 900-7378<br>"
-                transfer_info_html += "<b>Ganesh:</b> +1 (469) 768-3939<br>"
-                transfer_info_html += "<b>Supreeth:</b> +1 (704) 388-6770<br>"
+                # Build PayPal payment section for the email
+                paypal_link = st.secrets.get("paypal_link", "")
+                paypal_icon = "<img src='https://www.paypalobjects.com/webstatic/icon/pp258.png' alt='PayPal' style='height:32px;vertical-align:middle;margin-right:8px;'/>"
+                paypal_html = "<br><b>To pay your sponsorship or donation, please use the PayPal link below:</b><br>"
+                if paypal_link:
+                    paypal_html += f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
+                else:
+                    paypal_html += "<span style='color:#d32f2f;'>PayPal link not available.</span>"
                 send_email(
                     "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
                     f"""
@@ -360,7 +371,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
 {email_rows}
 </table>
-{transfer_info_html}
+{paypal_html}
 """,
                     recipients
                 )

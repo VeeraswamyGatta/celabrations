@@ -191,58 +191,50 @@ def admin_tab(menu="Sponsorship Items"):
                         st.error(f"❌ Failed to delete sponsorship: {e}")
         else:
             st.info("No sponsorship records found.")
-    elif menu == "Edit/Delete Transfer Accounts":
-        st.markdown("<h2 style='color: #6A1B9A;'>✏️ Edit or Delete Transfer Account</h2>", unsafe_allow_html=True)
-        df_transfers = pd.read_sql("SELECT * FROM transfers ORDER BY id", conn)
-        if not df_transfers.empty:
-            display_df = df_transfers.drop(columns=["id"])
-            display_df = display_df.rename(columns={col: col.replace('_', ' ').title() for col in display_df.columns})
-            st.dataframe(display_df, use_container_width=True)
-            transfer_names = df_transfers["name"].tolist()
-            selected_name = st.selectbox("Select Transfer Account (by Name)", transfer_names)
-            transfer_row = df_transfers[df_transfers.name == selected_name].iloc[0]
-            transfer_id = int(transfer_row["id"])
-            edit_name = st.text_input("Name", value=transfer_row["name"])
-            edit_phone = st.text_input("Phone", value=transfer_row["phone"] or "")
-            edit_email = st.text_input("Email", value=transfer_row["email"] or "")
+    elif menu == "Manage Notification Emails":
+        st.markdown("<h2 style='color: #6A1B9A;'>✉️ Manage Notification Emails</h2>", unsafe_allow_html=True)
+        df_emails = pd.read_sql("SELECT * FROM notification_emails ORDER BY id", conn)
+        if not df_emails.empty:
+            display_emails = df_emails.drop(columns=["id"])
+            st.dataframe(display_emails, use_container_width=True)
+            email_list = df_emails["email"].tolist()
+            selected_email = st.selectbox("Select Email to Edit/Delete", email_list)
+            email_row = df_emails[df_emails.email == selected_email].iloc[0]
+            email_id = int(email_row["id"])
+            edit_email_val = st.text_input("Edit Email", value=email_row["email"], key="edit_notification_email")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Update Transfer Account"):
+                if st.button("Update Notification Email"):
                     try:
-                        cursor.execute(
-                            "UPDATE transfers SET name=%s, phone=%s, email=%s WHERE id=%s",
-                            (edit_name, edit_phone, edit_email, transfer_id)
-                        )
+                        cursor.execute("UPDATE notification_emails SET email=%s WHERE id=%s", (edit_email_val.strip(), email_id))
                         conn.commit()
-                        st.success("✅ Transfer account updated!")
+                        st.success("✅ Notification email updated!")
                         st.rerun()
                     except Exception as e:
                         conn.rollback()
-                        st.error(f"❌ Failed to update transfer account: {e}")
+                        st.error(f"❌ Failed to update notification email: {e}")
             with col2:
-                if st.button("Delete Transfer Account"):
+                if st.button("Delete Notification Email"):
                     try:
-                        cursor.execute("DELETE FROM transfers WHERE id=%s", (transfer_id,))
+                        cursor.execute("DELETE FROM notification_emails WHERE id=%s", (email_id,))
                         conn.commit()
-                        st.success("🗑️ Transfer account deleted!")
+                        st.success("🗑️ Notification email deleted!")
                         st.rerun()
                     except Exception as e:
                         conn.rollback()
-                        st.error(f"❌ Failed to delete transfer account: {e}")
+                        st.error(f"❌ Failed to delete notification email: {e}")
         else:
-            st.info("No transfer accounts found.")
-        st.markdown("<h3 style='color: #6A1B9A;'>➕ Add New Transfer Account</h3>", unsafe_allow_html=True)
-        with st.form("add_transfer_admin_form"):
-            new_name = st.text_input("New Name")
-            new_phone = st.text_input("New Phone Number")
-            new_email = st.text_input("New Email")
-            if st.form_submit_button("Add Transfer Account"):
+            st.info("No notification emails found.")
+        st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Notification Email</h3>", unsafe_allow_html=True)
+        with st.form("add_notification_email_form"):
+            new_email_val = st.text_input("New Notification Email")
+            if st.form_submit_button("Add Notification Email"):
                 try:
-                    cursor.execute("INSERT INTO transfers (name, phone, email) VALUES (%s, %s, %s)", (new_name.strip(), new_phone.strip(), new_email.strip()))
+                    cursor.execute("INSERT INTO notification_emails (email) VALUES (%s)", (new_email_val.strip(),))
                     conn.commit()
-                    st.success("✅ New transfer account added!")
+                    st.success("✅ New notification email added!")
                     st.rerun()
                 except Exception as e:
                     conn.rollback()
-                    st.error(f"❌ Failed to add transfer account: {e}")
+                    st.error(f"❌ Failed to add notification email: {e}")
 
