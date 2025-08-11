@@ -52,10 +52,18 @@ def events_tab():
         with st.form("admin_login_events"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
+            full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_events_full_name", placeholder="Enter your full name")
             login = st.form_submit_button("Login")
         if login:
-            if user == ADMIN_USERNAME and pwd == get_admin_password():
+            if not user.strip():
+                st.error("Username is required.")
+            elif not pwd.strip():
+                st.error("Password is required.")
+            elif not full_name.strip():
+                st.error("Your Full Name is required for audit trail.")
+            elif user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
+                st.session_state.admin_full_name = full_name.strip()
                 st.success("✅ Admin access granted!")
                 st.rerun()
             else:
@@ -108,8 +116,11 @@ def events_tab():
                     )
                     conn.commit()
                     st.success("✅ Event added successfully!")
-                    cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-                    sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
+                    # Get admin full name for audit trail
+                    admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                    # Send to notification_emails only
+                    cursor.execute("SELECT email FROM notification_emails")
+                    notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
                     html_table = f"""
                     <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
                       <tr><th>Title</th><td>{new_title}</td></tr>
@@ -117,30 +128,20 @@ def events_tab():
                       <tr><th>Time</th><td>{new_time}</td></tr>
                       <tr><th>Description</th><td>{new_description}</td></tr>
                     </table>
+                    <br><b>Modified By:</b> {admin_full_name}
                     """
-                    send_email(
-                        "New Ganesh Chaturthi Event Added",
-                        f"<b>New Event Added:</b><br><br>{html_table}",
-                        sponsor_emails
-                    )
+                    if notification_emails:
+                        send_email(
+                            "New Ganesh Chaturthi Event Added",
+                            f"<b>New Event Added:</b><br><br>{html_table}",
+                            notification_emails
+                        )
                     st.session_state.refresh_events = True
                     st.rerun()
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add event: {e}")
 
-    # Only show edit/delete section if there are events
-    if events:
-        selected_event_id = st.selectbox(
-            "Select Event to Edit/Delete",
-            df_events["ID"].tolist(),
-            format_func=lambda x: df_events[df_events["ID"] == x]["Event Name"].values[0],
-            key="select_event_edit_delete_bottom"
-        )
-
-        if selected_event_id:
-            event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
-            tab1, tab2 = st.tabs(["Edit Event", "Delete Event"])
     if events:
         selected_event_id = st.selectbox(
             "Select Event to Edit/Delete",
@@ -180,8 +181,9 @@ def events_tab():
                             )
                             conn.commit()
                             st.success("✅ Event updated successfully!")
-                            cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-                            sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
+                            admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                            cursor.execute("SELECT email FROM notification_emails")
+                            notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
                             html_table = f"""
                             <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
                               <tr><th>Title</th><td>{edited_title}</td></tr>
@@ -189,12 +191,14 @@ def events_tab():
                               <tr><th>Time</th><td>{edited_time}</td></tr>
                               <tr><th>Description</th><td>{edited_description}</td></tr>
                             </table>
+                            <br><b>Modified By:</b> {admin_full_name}
                             """
-                            send_email(
-                                "Ganesh Chaturthi Event Updated",
-                                f"<b>Event updated:</b><br><br>{html_table}",
-                                sponsor_emails
-                            )
+                            if notification_emails:
+                                send_email(
+                                    "Ganesh Chaturthi Event Updated",
+                                    f"<b>Event updated:</b><br><br>{html_table}",
+                                    notification_emails
+                                )
                             st.session_state.refresh_events = True
                             st.rerun()
                         except Exception as e:
@@ -212,20 +216,23 @@ def events_tab():
                         cursor.execute("DELETE FROM events WHERE id=%s", (selected_event_id,))
                         conn.commit()
                         st.success("🗑️ Event deleted successfully!")
-                        cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-                        sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
+                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                        cursor.execute("SELECT email FROM notification_emails")
+                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
                         html_table = f"""
                         <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
                           <tr><th>Title</th><td>{event_row['Event Name']}</td></tr>
                           <tr><th>Date</th><td>{event_row['Date']}</td></tr>
                           <tr><th>Description</th><td>{event_row['Description']}</td></tr>
                         </table>
+                        <br><b>Modified By:</b> {admin_full_name}
                         """
-                        send_email(
-                            "Ganesh Chaturthi Event Deleted",
-                            f"<b>Event deleted:</b><br><br>{html_table}",
-                            sponsor_emails
-                        )
+                        if notification_emails:
+                            send_email(
+                                "Ganesh Chaturthi Event Deleted",
+                                f"<b>Event deleted:</b><br><br>{html_table}",
+                                notification_emails
+                            )
                         st.session_state.refresh_events = True
                         st.rerun()
                     except Exception as e:

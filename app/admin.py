@@ -58,8 +58,29 @@ def admin_tab(menu="Sponsorship Items"):
                 st.dataframe(display_df, use_container_width=True)
                 total_amount = display_df["amount"].sum()
                 st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
-                csv = display_df.to_csv(index=False)
-                st.download_button("Export as CSV", csv, file_name="payment_details.csv", mime="text/csv")
+                # Send payment details to notification_emails
+                if st.button("Send Payment Details Email"):
+                    # Fetch notification emails
+                    cursor.execute("SELECT email FROM notification_emails")
+                    notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                    if notification_emails:
+                        # Build HTML table for email
+                        html_table = display_df.to_html(index=False, border=1, justify='center')
+                        try:
+                            send_email(
+                                "Ganesh Chaturthi Payment Details",
+                                f"""
+<b>Payment Details (Received)</b><br><br>
+{html_table}
+<br><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span>
+""",
+                                notification_emails
+                            )
+                            st.success(f"✅ Payment details sent to: {', '.join(notification_emails)}")
+                        except Exception as e:
+                            st.error(f"❌ Failed to send email: {e}")
+                    else:
+                        st.warning("No notification emails found.")
             else:
                 st.info("No payment details found.")
 
@@ -219,70 +240,135 @@ def admin_tab(menu="Sponsorship Items"):
             display_df = display_df[[c for c in col_order if c in display_df.columns]]
             display_df = display_df.rename(columns={col: col.replace('_', ' ').title() for col in display_df.columns})
             st.dataframe(display_df, use_container_width=True)
-            sponsor_names = df_sponsors["name"].tolist()
+            sponsor_names = sorted(df_sponsors["name"].tolist())
             selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
             sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]
             sponsor_id = int(sponsor_row["id"])
             # Read-only mandatory and requested fields in plain text
             st.write(f"Name: {sponsor_row['name']}")
             st.write(f"Apartment Number: {sponsor_row['apartment']}")
-            st.write(f"Sponsorship Item: {sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}")
+            # Editable Sponsorship Item field
+            cursor.execute("SELECT item FROM sponsorship_items ORDER BY id")
+            sponsorship_items_list = [row[0] for row in cursor.fetchall()]
+            current_item = sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else ''
+            edit_sponsorship_item = st.selectbox(
+                "Sponsorship Item (editable)",
+                options=["N/A"] + sponsorship_items_list,
+                index=(sponsorship_items_list.index(current_item) + 1) if current_item in sponsorship_items_list else 0,
+                help="Select a sponsorship item or choose N/A for donation only."
+            )
             st.write(f"Donation: ${float(sponsor_row['donation'] or 0):,.2f}")
             # Editable optional fields
             edit_email = st.text_input("Email Address (optional)", value=sponsor_row["email"] or "", help="Enter Email to Subscribe the notifications to Your Email")
             edit_gothram = st.text_input("Gothram (optional)", value=sponsor_row["gothram"] if "gothram" in sponsor_row and sponsor_row["gothram"] is not None else "", key=f"edit_gothram_{sponsor_id}")
             edit_mobile = st.text_input("Mobile (optional, US format)", value=sponsor_row["mobile"] or "")
-            if st.button("Update Sponsorship Record"):
-                errors = []
-                # Email validation
-                if edit_email.strip():
-                    if '@' not in edit_email or not edit_email.strip().lower().endswith('.com'):
-                        errors.append("Please enter a valid email address (must contain '@' and end with .com)")
-                # Mobile validation (optional, US format)
-                import re
-                def validate_us_phone(phone):
-                    digits = re.sub(r'\D', '', phone)
-                    if len(digits) == 10:
-                        return True, f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
-                    return False, phone
-                phone_valid, phone_fmt = True, edit_mobile
-                if edit_mobile.strip():
-                    phone_valid, phone_fmt = validate_us_phone(edit_mobile)
-                    if not phone_valid:
-                        errors.append("Please enter a valid 10-digit US phone number.")
-                if errors:
-                    for err in errors:
-                        st.error(err)
-                else:
-                    try:
-                        cursor.execute(
-                            "UPDATE sponsors SET email=%s, mobile=%s, gothram=%s WHERE id=%s",
-                            (edit_email, phone_fmt.strip(), edit_gothram, sponsor_id)
-                        )
-                        conn.commit()
-                        st.success("✅ Sponsorship record updated!")
-                        # Send to all unique sponsor emails
-                        cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-                        sponsor_emails = [row[0].strip() for row in cursor.fetchall() if row[0]]
-                        send_email(
-                            "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
-                            f"""
-<b>Sponsorship Record Updated</b><br><br>
+            tab1, tab2 = st.tabs(["Edit Record", "Delete Record"])
+            with tab1:
+                if st.button("Update Sponsorship Record"):
+                    errors = []
+                    # Email validation
+                    if edit_email.strip():
+                        if '@' not in edit_email or not edit_email.strip().lower().endswith('.com'):
+                            errors.append("Please enter a valid email address (must contain '@' and end with .com)")
+                    # Mobile validation (optional, US format)
+                    import re
+                    def validate_us_phone(phone):
+                        digits = re.sub(r'\D', '', phone)
+                        if len(digits) == 10:
+                            return True, f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+                        return False, phone
+                    phone_valid, phone_fmt = True, edit_mobile
+                    if edit_mobile.strip():
+                        phone_valid, phone_fmt = validate_us_phone(edit_mobile)
+                        if not phone_valid:
+                            errors.append("Please enter a valid 10-digit US phone number.")
+                    # Validate sponsorship item
+                    sponsorship_value = None if edit_sponsorship_item == "N/A" else edit_sponsorship_item
+                    if errors:
+                        for err in errors:
+                            st.error(err)
+                    else:
+                        try:
+                            cursor.execute(
+                                "UPDATE sponsors SET email=%s, mobile=%s, gothram=%s, sponsorship=%s WHERE id=%s",
+                                (edit_email, phone_fmt.strip(), edit_gothram, sponsorship_value, sponsor_id)
+                            )
+                            conn.commit()
+                            st.success("✅ Sponsorship record updated!")
+                            # Send only to notification_emails
+                            cursor.execute("SELECT email FROM notification_emails")
+                            notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                            admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                            if notification_emails:
+                                send_email(
+                                    "Ganesh Chaturthi Sponsorship Record Updated",
+                                    f"""
+    <b>Sponsorship Record Updated</b><br><br>
+    <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{edit_email}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Gothram</th><td>{edit_gothram}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{phone_fmt.strip()}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsorship_value if sponsorship_value else 'N/A'}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
+    </table>
+    <br><b>Modified By:</b> {admin_full_name}
+    """,
+                                    notification_emails
+                                )
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to update sponsorship: {e}")
+            with tab2:
+                st.markdown("#### Delete this sponsorship record?")
+                st.markdown(f"""
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{edit_email}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Gothram</th><td>{edit_gothram}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{phone_fmt.strip()}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}</td></tr>
-        <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{sponsor_row['email']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Gothram</th><td>{sponsor_row['gothram']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{sponsor_row['mobile']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
 </table>
-""",
-                            sponsor_emails
-                        )
+""", unsafe_allow_html=True)
+                if st.button("Delete Sponsorship Record"):
+                    try:
+                        # Fetch notification emails
+                        cursor.execute("SELECT email FROM notification_emails")
+                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                        # Get admin full name for audit trail
+                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                        # Prepare deleted record details with audit trail
+                        deleted_details = f"""
+<b>Sponsorship Record Deleted</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Email</th><td>{sponsor_row['email']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Gothram</th><td>{sponsor_row['gothram']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{sponsor_row['mobile']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
+</table>
+<br><b>Modified By:</b> {admin_full_name}
+"""
+                        cursor.execute("DELETE FROM sponsors WHERE id=%s", (sponsor_id,))
+                        conn.commit()
+                        st.cache_data.clear()
+                        # Send email to notification_emails
+                        if notification_emails:
+                            send_email(
+                                "Ganesh Chaturthi Sponsorship Record Deleted",
+                                deleted_details,
+                                notification_emails
+                            )
+                        st.success("🗑️ Sponsorship record deleted!")
+                        st.rerun()
                     except Exception as e:
                         conn.rollback()
-                        st.error(f"❌ Failed to update sponsorship: {e}")
+                        st.error(f"❌ Failed to delete sponsorship record: {e}")
         else:
             st.info("No sponsorship records found.")
     elif menu == "Manage Notification Emails":

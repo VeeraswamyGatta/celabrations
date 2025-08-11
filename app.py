@@ -122,16 +122,26 @@ elif main_menu == "🔐 Admin":
         with st.form("admin_login_admin"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
+            full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_full_name", placeholder="Enter your full name")
             login = st.form_submit_button("Login")
         if login:
-            if user == ADMIN_USERNAME and pwd == get_admin_password():
+            if not user.strip():
+                st.error("Username is required.")
+            elif not pwd.strip():
+                st.error("Password is required.")
+            elif not full_name.strip():
+                st.error("Your Full Name is required for audit trail.")
+            elif user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
+                st.session_state.admin_full_name = full_name.strip()
                 st.success("✅ Admin access granted!")
                 st.rerun()
             else:
                 st.error("❌ Invalid admin credentials")
     else:
         # Admin submenu
+        if 'admin_full_name' not in st.session_state:
+            st.session_state.admin_full_name = ''
         admin_menu = option_menu(
             "Admin Sections",
             [
