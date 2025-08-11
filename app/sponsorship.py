@@ -13,6 +13,40 @@ def sponsorship_tab():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # --- Combined PayPal + Zelle Total ---
+    import requests
+    from bs4 import BeautifulSoup
+    paypal_link = st.secrets.get("paypal_link", "")
+    paypal_amount = 0.0
+    if paypal_link:
+        try:
+            resp = requests.get(paypal_link, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                amt_tag = soup.find(class_="poolProgressBar-amount-raised")
+                if amt_tag and amt_tag.text.strip():
+                    import re
+                    match = re.search(r'\$([0-9,.]+)', amt_tag.text.strip())
+                    if match:
+                        paypal_amount = float(match.group(1).replace(",", ""))
+                else:
+                    import re
+                    match = re.search(r'\$([0-9,.]+)', resp.text)
+                    if match:
+                        paypal_amount = float(match.group(1).replace(",", ""))
+        except Exception:
+            paypal_amount = 0.0
+    # Sum Zelle payments from payment_details table
+    zelle_amount = 0.0
+    try:
+        zelle_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'Zelle'", conn)
+        if not zelle_df.empty:
+            zelle_amount = zelle_df["amount"].astype(float).sum()
+    except Exception:
+        zelle_amount = 0.0
+    combined_total = paypal_amount + zelle_amount
+
+    
     st.markdown(
         f"""
         <div style='text-align: center; margin-top: -1.2em; margin-bottom: -0.7em;'>
@@ -35,9 +69,7 @@ def sponsorship_tab():
     st.markdown("""
 <span style='font-size:1.13em; font-family: Times New Roman, Calibri, Verdana, serif;'>
 We warmly welcome you to join this year’s celebration by sponsoring any of the major items listed below. The cost for each item will be shared among the selected sponsors based on available slots. You may also contribute any amount of your choice as a donation.<br>
-<br>
 This year’s celebration is estimated to cost approximately <span style='color:#d32f2f; font-weight:bold;'>$2,800–$3,000</span>, based on last year’s expenses.<br>
-<br>
 Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.<br>
 </span>
 """, unsafe_allow_html=True)
@@ -118,12 +150,13 @@ Your generous support will help us make this year’s festivities vibrant and me
             style_html = ""
         st.markdown(f"""
 {style_html}
+<br/>
 <div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
 <b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
 <b>Total Donated Amount Submitted:</b> <span style='color:#2E7D32;'>${total_donated}</span><br>
 <b>Total Sponsored Amount Submitted:</b> <span style='color:#2E7D32;'>${total_sponsored}</span><br>
 <b>Total Sponsored + Donation Amount Submitted:</b> <span style='color:#2E7D32;'>${total_combined}</span><br>
-<b>Total Amount Received in PayPal Account:</b> <span style='color:#2E7D32;'>{total_paypal_received}</span>
+<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${paypal_amount:,.2f} + ${zelle_amount:,.2f} = ${combined_total:,.2f}</span>
 </div>
 """, unsafe_allow_html=True)
         st.markdown("""
@@ -206,7 +239,6 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     ])
     selected_items = []
     with tab1:
-        st.markdown("<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'><b>Major Sponsorship items are listed below</b></div>", unsafe_allow_html=True)
         cursor.execute("SELECT sponsorship, COUNT(*) FROM sponsors GROUP BY sponsorship")
         counts = dict(cursor.fetchall())
         cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
@@ -222,6 +254,9 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 remaining_str = f"<span class='blink' style='color:#d32f2f;font-weight:bold'>{remaining}</span>"
             else:
                 remaining_str = f"{remaining}"
+            per_slot = cost / limit if limit else cost
+            def fmt_amt(val):
+                return str(int(val)) if val == int(val) else str(val)
             st.markdown(
                 """
                 <style>
@@ -232,7 +267,8 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                     50% { opacity: 0; }
                 }
                 </style>
-                """ + f"**{item}** — :orange[${cost} Approx.] | Total Slots: {limit}, Remaining Slots Available: {remaining_str}",
+                """ +
+                f"<b>{item}</b> — <span style='color:#1565c0;'>${fmt_amt(cost)} / {limit} = ${fmt_amt(per_slot)} per slot</span> | Total Slots: {limit}, Available Slots: {remaining_str}",
                 unsafe_allow_html=True
             )
             if sponsor_names:

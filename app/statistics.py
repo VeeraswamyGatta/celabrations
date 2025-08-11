@@ -26,6 +26,40 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 def statistics_tab():
+    # --- Combined PayPal + Zelle Total ---
+    import requests
+    from bs4 import BeautifulSoup
+    paypal_link = st.secrets.get("paypal_link", "")
+    paypal_amount = 0.0
+    if paypal_link:
+        try:
+            resp = requests.get(paypal_link, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                amt_tag = soup.find(class_="poolProgressBar-amount-raised")
+                if amt_tag and amt_tag.text.strip():
+                    import re
+                    match = re.search(r'\$([0-9,.]+)', amt_tag.text.strip())
+                    if match:
+                        paypal_amount = float(match.group(1).replace(",", ""))
+                else:
+                    import re
+                    match = re.search(r'\$([0-9,.]+)', resp.text)
+                    if match:
+                        paypal_amount = float(match.group(1).replace(",", ""))
+            # else: leave as 0.0
+        except Exception:
+            paypal_amount = 0.0
+    # Sum Zelle payments from payment_details table
+    zelle_amount = 0.0
+    try:
+        zelle_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'Zelle'", conn)
+        if not zelle_df.empty:
+            zelle_amount = zelle_df["amount"].astype(float).sum()
+    except Exception:
+        zelle_amount = 0.0
+    combined_total = paypal_amount + zelle_amount
+    st.markdown(f"<div style='font-size:1.2em; color:#1565C0; font-weight:bold; margin-bottom:1em;'>Total Amount Received in PayPal + Zelle Account: <span style='color:#2E7D32;'>${combined_total:,.2f}</span></div>", unsafe_allow_html=True)
     st.session_state['active_tab'] = 'Statistics'
     conn = get_connection()
     cursor = conn.cursor()
