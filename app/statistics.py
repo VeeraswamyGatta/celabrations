@@ -109,36 +109,6 @@ def statistics_tab():
             except Exception as e:
                 st.error(f"Failed to send email to {recipient}: {e}")
 
-    def send_csv_email(subject, body, df_csv, filename):
-        import io
-        cursor.execute("SELECT DISTINCT email FROM sponsors WHERE email IS NOT NULL AND email != ''")
-        recipients = list({row[0].strip() for row in cursor.fetchall() if row[0]})
-        if not recipients:
-            st.warning("No sponsor emails found.")
-            return
-        EMAIL_SENDER = st.secrets["email_sender"]
-        EMAIL_PASSWORD = st.secrets["email_password"]
-        SMTP_SERVER = st.secrets["smtp_server"]
-        SMTP_PORT = st.secrets["smtp_port"]
-        for recipient in recipients:
-            msg = MIMEMultipart()
-            msg['From'] = EMAIL_SENDER
-            msg['To'] = recipient
-            msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'html'))
-            csv_buffer = io.StringIO()
-            df_csv.to_csv(csv_buffer, index=False)
-            part = MIMEText(csv_buffer.getvalue(), 'csv')
-            part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-            msg.attach(part)
-            try:
-                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-                    server.starttls()
-                    server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-                    server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
-            except Exception as e:
-                st.error(f"Failed to send email to {recipient}: {e}")
-
     if st.button("Send Sponsored Records Report (CSV)"):
         body = f"""
 <b>Sponsored Records Report (CSV attached)</b><br><br>

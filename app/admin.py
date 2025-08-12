@@ -28,7 +28,6 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Payment Details":
         st.markdown("<h2 style='color: #6A1B9A;'>💳 Payment Details</h2>", unsafe_allow_html=True)
         # Fetch sponsor names and their total sponsored+donated amount
-        @st.cache_data(show_spinner=False)
         def get_sponsor_df():
             df = pd.read_sql("SELECT name, SUM(COALESCE(donation,0)) AS donation_sum FROM sponsors GROUP BY name", conn)
             cursor2 = conn.cursor()
@@ -96,25 +95,28 @@ def admin_tab(menu="Sponsorship Items"):
 
         # Add Payment Detail section next
         st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Payment Detail</h3>", unsafe_allow_html=True)
-        if 'add_pay_selected_name' not in st.session_state:
-            st.session_state['add_pay_selected_name'] = sponsor_names[0] if sponsor_names else ''
+        # Only show names not present in payment_details for adding payment
+        df_pay_names = pd.read_sql("SELECT name FROM payment_details", conn)
+        paid_names_set = set(df_pay_names["name"].tolist())
+        unpaid_names = [n for n in sponsor_names if n not in paid_names_set]
+        if 'add_pay_selected_name' not in st.session_state or st.session_state['add_pay_selected_name'] not in unpaid_names:
+            st.session_state['add_pay_selected_name'] = unpaid_names[0] if unpaid_names else ''
         if 'add_pay_payment_type' not in st.session_state:
             st.session_state['add_pay_payment_type'] = 'PayPal'
         def update_amount():
             name = st.session_state['add_pay_selected_name']
             amt = float(sponsor_df[sponsor_df["name"] == name]["total_amount"].values[0]) if name in sponsor_names else 0.0
             st.session_state['add_pay_amount'] = amt
-        name = st.selectbox("Name", sponsor_names, key="add_pay_selected_name", on_change=update_amount)
+        name = st.selectbox("Name", unpaid_names, key="add_pay_selected_name", on_change=update_amount)
         payment_type = st.selectbox("Payment Type", ["PayPal", "Zelle"], key="add_pay_payment_type")
         if 'add_pay_amount' not in st.session_state or st.session_state['add_pay_selected_name'] != name:
             update_amount()
-        amount = st.session_state.get('add_pay_amount', 0.0)
-        st.write(f"Amount: **${amount:,.2f}**")
+        default_amount = st.session_state.get('add_pay_amount', 0.0)
         with st.form("add_payment_detail_form"):
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"Name: **{name}**")
-                st.write(f"Amount: **${amount:,.2f}**")
+                amount = st.number_input("Amount (editable)", min_value=0.0, value=default_amount, step=1.0, format="%.2f", key="add_pay_amount_input")
                 st.write(f"Payment Type: **{payment_type}**")
             with col2:
                 date = st.date_input("Date", key="add_pay_date")
@@ -149,15 +151,20 @@ def admin_tab(menu="Sponsorship Items"):
 <b>Comments:</b> {pay_row['comments'] or ''}
 </div>
 """, unsafe_allow_html=True)
+            st.warning(f"To confirm deletion, enter the name '{pay_row['name']}' below and click Delete.")
+            confirm_name = st.text_input("Enter this name to delete the record:", "", key=f"delete_pay_confirm_{pay_id}")
             if st.button("Delete Payment Detail"):
-                try:
-                    cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
-                    conn.commit()
-                    st.success("🗑️ Payment detail deleted!")
-                    st.rerun()
-                except Exception as e:
-                    conn.rollback()
-                    st.error(f"❌ Failed to delete payment detail: {e}")
+                if confirm_name.strip() == pay_row['name']:
+                    try:
+                        cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
+                        conn.commit()
+                        st.success("🗑️ Payment detail deleted!")
+                        st.rerun()
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to delete payment detail: {e}")
+                else:
+                    st.error("Name entered does not match. Record not deleted.")
         return
 
     if menu == "Sponsorship Items":
@@ -244,26 +251,27 @@ def admin_tab(menu="Sponsorship Items"):
             selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
             sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]
             sponsor_id = int(sponsor_row["id"])
-            # Read-only mandatory and requested fields in plain text
-            st.write(f"Name: {sponsor_row['name']}")
-            st.write(f"Apartment Number: {sponsor_row['apartment']}")
-            # Editable Sponsorship Item field
-            cursor.execute("SELECT item FROM sponsorship_items ORDER BY id")
-            sponsorship_items_list = [row[0] for row in cursor.fetchall()]
-            current_item = sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else ''
-            edit_sponsorship_item = st.selectbox(
-                "Sponsorship Item (editable)",
-                options=["N/A"] + sponsorship_items_list,
-                index=(sponsorship_items_list.index(current_item) + 1) if current_item in sponsorship_items_list else 0,
-                help="Select a sponsorship item or choose N/A for donation only."
-            )
-            st.write(f"Donation: ${float(sponsor_row['donation'] or 0):,.2f}")
-            # Editable optional fields
-            edit_email = st.text_input("Email Address (optional)", value=sponsor_row["email"] or "", help="Enter Email to Subscribe the notifications to Your Email")
-            edit_gothram = st.text_input("Gothram (optional)", value=sponsor_row["gothram"] if "gothram" in sponsor_row and sponsor_row["gothram"] is not None else "", key=f"edit_gothram_{sponsor_id}")
-            edit_mobile = st.text_input("Mobile (optional, US format)", value=sponsor_row["mobile"] or "")
-            tab1, tab2 = st.tabs(["Edit Record", "Delete Record"])
-            with tab1:
+            # Move Edit/Delete selection to the top
+            action = st.radio("Choose Action", ["Edit Record", "Delete Record"], horizontal=True)
+            if action == "Edit Record":
+                # Read-only mandatory and requested fields in plain text
+                st.write(f"Name: {sponsor_row['name']}")
+                st.write(f"Apartment Number: {sponsor_row['apartment']}")
+                # Editable Sponsorship Item field
+                cursor.execute("SELECT item FROM sponsorship_items ORDER BY id")
+                sponsorship_items_list = [row[0] for row in cursor.fetchall()]
+                current_item = sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else ''
+                edit_sponsorship_item = st.selectbox(
+                    "Sponsorship Item (editable)",
+                    options=["N/A"] + sponsorship_items_list,
+                    index=(sponsorship_items_list.index(current_item) + 1) if current_item in sponsorship_items_list else 0,
+                    help="Select a sponsorship item or choose N/A for donation only."
+                )
+                edit_donation = st.number_input("Donation Amount (editable)", min_value=0.0, value=float(sponsor_row['donation'] or 0), step=1.0, format="%.2f", key=f"edit_donation_{sponsor_id}")
+                # Editable optional fields
+                edit_email = st.text_input("Email Address (optional)", value=sponsor_row["email"] or "", help="Enter Email to Subscribe the notifications to Your Email")
+                edit_gothram = st.text_input("Gothram (optional)", value=sponsor_row["gothram"] if "gothram" in sponsor_row and sponsor_row["gothram"] is not None else "", key=f"edit_gothram_{sponsor_id}")
+                edit_mobile = st.text_input("Mobile (optional, US format)", value=sponsor_row["mobile"] or "")
                 if st.button("Update Sponsorship Record"):
                     errors = []
                     # Email validation
@@ -284,14 +292,17 @@ def admin_tab(menu="Sponsorship Items"):
                             errors.append("Please enter a valid 10-digit US phone number.")
                     # Validate sponsorship item
                     sponsorship_value = None if edit_sponsorship_item == "N/A" else edit_sponsorship_item
+                    # Validate donation
+                    if edit_donation < 0:
+                        errors.append("Donation amount cannot be negative.")
                     if errors:
                         for err in errors:
                             st.error(err)
                     else:
                         try:
                             cursor.execute(
-                                "UPDATE sponsors SET email=%s, mobile=%s, gothram=%s, sponsorship=%s WHERE id=%s",
-                                (edit_email, phone_fmt.strip(), edit_gothram, sponsorship_value, sponsor_id)
+                                "UPDATE sponsors SET email=%s, mobile=%s, gothram=%s, sponsorship=%s, donation=%s WHERE id=%s",
+                                (edit_email, phone_fmt.strip(), edit_gothram, sponsorship_value, edit_donation, sponsor_id)
                             )
                             conn.commit()
                             st.success("✅ Sponsorship record updated!")
@@ -311,7 +322,7 @@ def admin_tab(menu="Sponsorship Items"):
             <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{phone_fmt.strip()}</td></tr>
             <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
             <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsorship_value if sponsorship_value else 'N/A'}</td></tr>
-            <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
+            <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(edit_donation):,.2f}</td></tr>
     </table>
     <br><b>Modified By:</b> {admin_full_name}
     """,
@@ -320,7 +331,7 @@ def admin_tab(menu="Sponsorship Items"):
                         except Exception as e:
                             conn.rollback()
                             st.error(f"❌ Failed to update sponsorship: {e}")
-            with tab2:
+            elif action == "Delete Record":
                 st.markdown("#### Delete this sponsorship record?")
                 st.markdown(f"""
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
@@ -333,15 +344,18 @@ def admin_tab(menu="Sponsorship Items"):
     <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
 </table>
 """, unsafe_allow_html=True)
+                st.warning(f"To confirm deletion, enter the name '{sponsor_row['name']}' below and click Delete.")
+                confirm_name = st.text_input("Enter this name to delete the record:", "", key=f"delete_confirm_{sponsor_id}")
                 if st.button("Delete Sponsorship Record"):
-                    try:
-                        # Fetch notification emails
-                        cursor.execute("SELECT email FROM notification_emails")
-                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
-                        # Get admin full name for audit trail
-                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
-                        # Prepare deleted record details with audit trail
-                        deleted_details = f"""
+                    if confirm_name.strip() == sponsor_row['name']:
+                        try:
+                            # Fetch notification emails
+                            cursor.execute("SELECT email FROM notification_emails")
+                            notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                            # Get admin full name for audit trail
+                            admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                            # Prepare deleted record details with audit trail
+                            deleted_details = f"""
 <b>Sponsorship Record Deleted</b><br><br>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
     <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
@@ -354,21 +368,23 @@ def admin_tab(menu="Sponsorship Items"):
 </table>
 <br><b>Modified By:</b> {admin_full_name}
 """
-                        cursor.execute("DELETE FROM sponsors WHERE id=%s", (sponsor_id,))
-                        conn.commit()
-                        st.cache_data.clear()
-                        # Send email to notification_emails
-                        if notification_emails:
-                            send_email(
-                                "Ganesh Chaturthi Sponsorship Record Deleted",
-                                deleted_details,
-                                notification_emails
-                            )
-                        st.success("🗑️ Sponsorship record deleted!")
-                        st.rerun()
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"❌ Failed to delete sponsorship record: {e}")
+                            cursor.execute("DELETE FROM sponsors WHERE id=%s", (sponsor_id,))
+                            conn.commit()
+                            st.cache_data.clear()
+                            # Send email to notification_emails
+                            if notification_emails:
+                                send_email(
+                                    "Ganesh Chaturthi Sponsorship Record Deleted",
+                                    deleted_details,
+                                    notification_emails
+                                )
+                            st.success("🗑️ Sponsorship record deleted!")
+                            st.rerun()
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to delete sponsorship record: {e}")
+                    else:
+                        st.error("Name entered does not match. Record not deleted.")
         else:
             st.info("No sponsorship records found.")
     elif menu == "Manage Notification Emails":

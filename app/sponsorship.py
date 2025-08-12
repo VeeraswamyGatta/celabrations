@@ -77,8 +77,22 @@ Your generous support will help us make this year’s festivities vibrant and me
 
 
 
+    # Show submitted details if just submitted
+    if st.session_state.get('show_submission') and st.session_state.get('submitted_data'):
+        st.success('Thank you for your submission! Here are your submitted details:')
+        submitted_data = st.session_state['submitted_data']
+        for k, v in submitted_data.items():
+            if isinstance(v, list):
+                st.markdown(f"**{k}:** {', '.join(str(i) for i in v)}")
+            else:
+                st.markdown(f"**{k}:** {v}")
+        if st.button('🏠 Home', key='home_button'):
+            st.session_state['show_submission'] = False
+            st.session_state['submitted_data'] = None
+            st.experimental_rerun()
+        return
     # Only show info message if not on submitted details page
-    if not (st.session_state.get('show_submission') and st.session_state.get('submitted_data')):
+    # ...existing code...
         # --- High-level statistics ---
         cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
         items = cursor.fetchall()
@@ -309,7 +323,8 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     def format_name(name):
         return ' '.join(word.capitalize() for word in name.strip().split())
 
-    if st.button("✅ Submit", key="sponsorship_submit"):
+    submit_disabled = st.session_state.get('show_submission', False)
+    if st.button("✅ Submit", key="sponsorship_submit", disabled=submit_disabled):
         errors = []
         name_val = format_name(name)
         if not name_val:
@@ -374,7 +389,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 if donation > 0:
                     submitted_data["Donation"] = f"${donation}"
                 if (selected_items or donation > 0) and contributed_amount:
-                    submitted_data["Contributed Amount (Approx)"] = f"${contributed_amount}"
+                    submitted_data["Contributed Amount"] = f"${contributed_amount}"
                 st.session_state['submitted_data'] = submitted_data
                 st.session_state['show_submission'] = True
                 # Send email to notification_emails and the submitter (if provided)
