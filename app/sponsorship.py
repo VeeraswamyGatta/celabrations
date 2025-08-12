@@ -77,6 +77,95 @@ Your generous support will help us make this year’s festivities vibrant and me
 
 
 
+    # --- High-level statistics ---
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    items = cursor.fetchall()
+    total_slots = sum([row[2] for row in items])
+    cursor.execute("SELECT sponsorship, donation FROM sponsors")
+    sponsor_rows = cursor.fetchall()
+    slots_filled = {}
+    for s, _ in sponsor_rows:
+        if s:
+            slots_filled[s] = slots_filled.get(s, 0) + 1
+    remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
+    total_donated = sum([row[1] for row in sponsor_rows if row[1]])
+    cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
+    sponsorship_items = cursor.fetchall()
+    cursor.execute("SELECT sponsorship FROM sponsors")
+    sponsored_counts = {}
+    for row in cursor.fetchall():
+        s = row[0]
+        if s:
+            sponsored_counts[s] = sponsored_counts.get(s, 0) + 1
+    total_sponsored = 0
+    for item, amount, limit in sponsorship_items:
+        count = sponsored_counts.get(item, 0)
+        if count > 0 and limit:
+            total_sponsored += (amount / limit) * count
+    total_sponsored = round(total_sponsored, 2)
+    total_donated = round(total_donated, 2)
+    total_combined = round(total_sponsored + total_donated, 2)
+    import requests
+    from bs4 import BeautifulSoup
+    paypal_link = st.secrets.get("paypal_link", "")
+    total_paypal_received = "(fetching...)"
+    if paypal_link:
+        try:
+            resp = requests.get(paypal_link, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                amt_tag = soup.find(class_="poolProgressBar-amount-raised")
+                if amt_tag and amt_tag.text.strip():
+                    total_paypal_received = amt_tag.text.strip()
+                else:
+                    import re
+                    match = re.search(r'\$[0-9,.]+', resp.text)
+                    if match:
+                        total_paypal_received = match.group(0)
+                    else:
+                        total_paypal_received = "(not found)"
+            else:
+                total_paypal_received = f"(error: {resp.status_code})"
+        except Exception as e:
+            total_paypal_received = f"(error)"
+    blink_style = """
+<style>
+.blink-red {
+    color: #d32f2f;
+    font-weight: bold;
+    animation: blinker 1s linear infinite;
+}
+@keyframes blinker {
+    50% { opacity: 0; }
+}
+</style>
+"""
+    if remaining_slots > 0:
+        slots_html = f"<span class='blink-red'>{remaining_slots}</span>"
+        style_html = blink_style
+    else:
+        slots_html = f"<span style='color:#d32f2f;font-weight:bold'>{remaining_slots}</span>"
+        style_html = ""
+    st.markdown(f"""
+{style_html}
+<br/>
+<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
+<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
+<b>Total Donated Amount Submitted:</b> <span style='color:#2E7D32;'>${total_donated}</span><br>
+<b>Total Sponsored Amount Submitted:</b> <span style='color:#2E7D32;'>${total_sponsored}</span><br>
+<b>Total Sponsored + Donation Amount Submitted:</b> <span style='color:#2E7D32;'>${total_combined}</span><br>
+<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${paypal_amount:,.2f} + ${zelle_amount:,.2f} = ${combined_total:,.2f}</span>
+</div>
+""", unsafe_allow_html=True)
+    # Only show the info message if not on the submission thank you page
+    if not (st.session_state.get('show_submission') and st.session_state.get('submitted_data')):
+        st.markdown("""
+<br>
+<div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>
+Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
+</div>
+""", unsafe_allow_html=True)
+
     # Show submitted details if just submitted
     if st.session_state.get('show_submission') and st.session_state.get('submitted_data'):
         st.success('Thank you for your submission! Here are your submitted details:')
@@ -91,94 +180,6 @@ Your generous support will help us make this year’s festivities vibrant and me
             st.session_state['submitted_data'] = None
             st.experimental_rerun()
         return
-    # Only show info message if not on submitted details page
-    # ...existing code...
-        # --- High-level statistics ---
-        cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
-        items = cursor.fetchall()
-        total_slots = sum([row[2] for row in items])
-        cursor.execute("SELECT sponsorship, donation FROM sponsors")
-        sponsor_rows = cursor.fetchall()
-        slots_filled = {}
-        for s, _ in sponsor_rows:
-            if s:
-                slots_filled[s] = slots_filled.get(s, 0) + 1
-        remaining_slots = sum([row[2] - slots_filled.get(row[0], 0) for row in items])
-        total_donated = sum([row[1] for row in sponsor_rows if row[1]])
-        cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
-        sponsorship_items = cursor.fetchall()
-        cursor.execute("SELECT sponsorship FROM sponsors")
-        sponsored_counts = {}
-        for row in cursor.fetchall():
-            s = row[0]
-            if s:
-                sponsored_counts[s] = sponsored_counts.get(s, 0) + 1
-        total_sponsored = 0
-        for item, amount, limit in sponsorship_items:
-            count = sponsored_counts.get(item, 0)
-            if count > 0 and limit:
-                total_sponsored += (amount / limit) * count
-        total_sponsored = round(total_sponsored, 2)
-        total_donated = round(total_donated, 2)
-        total_combined = round(total_sponsored + total_donated, 2)
-        import requests
-        from bs4 import BeautifulSoup
-        paypal_link = st.secrets.get("paypal_link", "")
-        total_paypal_received = "(fetching...)"
-        if paypal_link:
-            try:
-                resp = requests.get(paypal_link, timeout=10)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    amt_tag = soup.find(class_="poolProgressBar-amount-raised")
-                    if amt_tag and amt_tag.text.strip():
-                        total_paypal_received = amt_tag.text.strip()
-                    else:
-                        import re
-                        match = re.search(r'\$[0-9,.]+', resp.text)
-                        if match:
-                            total_paypal_received = match.group(0)
-                        else:
-                            total_paypal_received = "(not found)"
-                else:
-                    total_paypal_received = f"(error: {resp.status_code})"
-            except Exception as e:
-                total_paypal_received = f"(error)"
-        blink_style = """
-<style>
-.blink-red {
-    color: #d32f2f;
-    font-weight: bold;
-    animation: blinker 1s linear infinite;
-}
-@keyframes blinker {
-    50% { opacity: 0; }
-}
-</style>
-"""
-        if remaining_slots > 0:
-            slots_html = f"<span class='blink-red'>{remaining_slots}</span>"
-            style_html = blink_style
-        else:
-            slots_html = f"<span style='color:#d32f2f;font-weight:bold'>{remaining_slots}</span>"
-            style_html = ""
-        st.markdown(f"""
-{style_html}
-<br/>
-<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
-<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
-<b>Total Donated Amount Submitted:</b> <span style='color:#2E7D32;'>${total_donated}</span><br>
-<b>Total Sponsored Amount Submitted:</b> <span style='color:#2E7D32;'>${total_sponsored}</span><br>
-<b>Total Sponsored + Donation Amount Submitted:</b> <span style='color:#2E7D32;'>${total_combined}</span><br>
-<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${paypal_amount:,.2f} + ${zelle_amount:,.2f} = ${combined_total:,.2f}</span>
-</div>
-""", unsafe_allow_html=True)
-        st.markdown("""
-<br>
-<div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>
-Please fill in your details below to participate in the Ganesh Chaturthi celebrations. Your information helps us coordinate and keep you updated!
-</div>
-""", unsafe_allow_html=True)
     name = st.text_input("👤 Your Name", help="Please enter your full name", placeholder="E.g., Raghava Rao")
     apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
     email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
