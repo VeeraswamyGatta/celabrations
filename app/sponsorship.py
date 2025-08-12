@@ -311,6 +311,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         if donor_rows:
             donor_df = pd.DataFrame(donor_rows, columns=["Donor Name", "Amount"])
             donor_df["Amount"] = donor_df["Amount"].apply(lambda x: f"${x}")
+            donor_df.index = donor_df.index + 1  # Start index from 1
             st.markdown("<b>🙏 Donors</b>", unsafe_allow_html=True)
             st.table(donor_df)
         donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
