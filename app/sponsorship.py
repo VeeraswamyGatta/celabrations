@@ -283,7 +283,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                 }
                 </style>
                 """ +
-                f"<b>{item}</b> — <span style='color:#1565c0;'>${fmt_amt(cost)} / {limit} = ${fmt_amt(per_slot)} per slot</span> | Total Slots: {limit}, Available Slots: {remaining_str}",
+                f"<b>{item}</b> — <span style='color:#1565c0;'>${fmt_amt(cost)} / {limit} = ${fmt_amt(per_slot)}$ per slot</span> | Total Slots: {limit}, Available Slots: {remaining_str}",
                 unsafe_allow_html=True
             )
             if sponsor_names:
