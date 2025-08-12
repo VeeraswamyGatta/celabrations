@@ -52,7 +52,10 @@ def admin_tab(menu="Sponsorship Items"):
             # Received: Payment details table
             df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
             if not df_pay.empty:
-                display_df = df_pay.drop(columns=["id"])
+                # Hide 'id' column if present
+                display_df = df_pay.copy()
+                if 'id' in display_df.columns:
+                    display_df = display_df.drop(columns=["id"])
                 display_df = display_df.sort_values(by=["name"])  # Sort by Name
                 st.dataframe(display_df, use_container_width=True)
                 total_amount = display_df["amount"].sum()
@@ -90,6 +93,9 @@ def admin_tab(menu="Sponsorship Items"):
             not_received_df = sponsor_df[~sponsor_df["name"].isin(paid_names)][["name", "total_amount"]]
             not_received_df = not_received_df.rename(columns={"name": "Name", "total_amount": "Amount"})
             not_received_df = not_received_df.sort_values(by=["Name"])  # Sort by Name
+            # Hide 'id' column if present (shouldn't be, but for safety)
+            if 'id' in not_received_df.columns:
+                not_received_df = not_received_df.drop(columns=["id"])
             st.dataframe(not_received_df, use_container_width=True)
             st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Not Received:</b> <span style='color:#6A1B9A;'>${not_received_df['Amount'].sum():,.2f}</span></div>", unsafe_allow_html=True)
 
@@ -177,7 +183,10 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Sponsorship Items":
         st.markdown("<h2 style='color: #6A1B9A;'>Sponsorship Items Overview</h2>", unsafe_allow_html=True)
         df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
-        st.dataframe(df)
+        # Show table with index starting from 1
+        df_display = df.copy()
+        df_display.index = df_display.index + 1
+        st.dataframe(df_display)
 
         st.markdown("<h3 style='color: #6A1B9A;'>✏️ Edit Existing Item</h3>", unsafe_allow_html=True)
         item_id = st.selectbox("Select Item ID", df["id"].tolist())
@@ -211,7 +220,7 @@ def admin_tab(menu="Sponsorship Items"):
                     conn.rollback()
                     st.error(f"❌ Failed to add item: {e}")
 
-    elif menu == "Sponsorship Record":
+    if menu == "Sponsorship Record":
         st.markdown("<h2 style='color: #6A1B9A;'>✏️ Edit Sponsorship Record</h2>", unsafe_allow_html=True)
         df_sponsors = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
         if not df_sponsors.empty:
@@ -253,7 +262,10 @@ def admin_tab(menu="Sponsorship Items"):
             col_order = ['name', 'email', 'mobile', 'apartment', 'gothram', 'Type', 'Donation/Sponsorship Amount']
             display_df = display_df[[c for c in col_order if c in display_df.columns]]
             display_df = display_df.rename(columns={col: col.replace('_', ' ').title() for col in display_df.columns})
-            st.dataframe(display_df, use_container_width=True)
+            # Show table with index starting from 1
+            display_df_display = display_df.copy()
+            display_df_display.index = display_df_display.index + 1
+            st.dataframe(display_df_display, use_container_width=True)
             sponsor_names = sorted(df_sponsors["name"].tolist())
             selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
             sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]
@@ -340,6 +352,11 @@ def admin_tab(menu="Sponsorship Items"):
                             st.error(f"❌ Failed to update sponsorship: {e}")
             elif action == "Delete Record":
                 st.markdown("#### Delete this sponsorship record?")
+                # Handle donation display: show $0.00 if None or not a number
+                try:
+                    donation_val = float(sponsor_row['donation']) if sponsor_row['donation'] not in (None, '', 0, '0', 'nan', 'NaN') else 0.0
+                except Exception:
+                    donation_val = 0.0
                 st.markdown(f"""
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
     <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{sponsor_row['name']}</td></tr>
@@ -348,7 +365,7 @@ def admin_tab(menu="Sponsorship Items"):
     <tr><th style='{TABLE_HEADER_STYLE}'>Mobile</th><td>{sponsor_row['mobile']}</td></tr>
     <tr><th style='{TABLE_HEADER_STYLE}'>Apartment</th><td>{sponsor_row['apartment']}</td></tr>
     <tr><th style='{TABLE_HEADER_STYLE}'>Sponsorship Item</th><td>{sponsor_row['sponsorship'] if sponsor_row['sponsorship'] else 'N/A'}</td></tr>
-    <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${float(sponsor_row['donation'] or 0):,.2f}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Donation</th><td>${donation_val:,.2f}</td></tr>
 </table>
 """, unsafe_allow_html=True)
                 st.warning(f"To confirm deletion, enter the name '{sponsor_row['name']}' below and click Delete.")
@@ -394,7 +411,7 @@ def admin_tab(menu="Sponsorship Items"):
                         st.error("Name entered does not match. Record not deleted.")
         else:
             st.info("No sponsorship records found.")
-    elif menu == "Manage Notification Emails":
+    if menu == "Manage Notification Emails":
         st.markdown("<h2 style='color: #6A1B9A;'>✉️ Manage Notification Emails</h2>", unsafe_allow_html=True)
         df_emails = pd.read_sql("SELECT * FROM notification_emails ORDER BY id", conn)
         if not df_emails.empty:
