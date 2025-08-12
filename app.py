@@ -100,6 +100,8 @@ with st.sidebar:
 if main_menu == "🎉 Sponsorship & Donation":
     sponsorship_tab()
 elif main_menu == "📅 Events":
+    if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
+        st.session_state['admin_full_name'] = ''
     events_tab()
 elif main_menu == "📊 Statistics":
     if not st.session_state.admin_logged_in:
@@ -118,16 +120,17 @@ elif main_menu == "📊 Statistics":
                 st.error("Your Full Name is required for audit trail.")
             elif user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
-                st.session_state.statistics_full_name = full_name.strip()
+                st.session_state.admin_full_name = full_name.strip()
                 st.success("✅ Admin access granted!")
                 st.rerun()
             else:
                 st.error("❌ Invalid admin credentials")
     else:
-        if 'statistics_full_name' not in st.session_state or not st.session_state['statistics_full_name']:
-            st.session_state['statistics_full_name'] = ''
+        if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
+            st.session_state['admin_full_name'] = ''
             st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
-        statistics_tab()
+        else:
+            statistics_tab()
 elif main_menu == "🔐 Admin":
     if not st.session_state.admin_logged_in:
         with st.form("admin_login_admin"):

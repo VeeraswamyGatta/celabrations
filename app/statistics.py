@@ -30,7 +30,7 @@ def statistics_tab():
     st.session_state['active_tab'] = 'Statistics'
     # --- Audit trail: Your Full Name ---
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
-    if 'statistics_full_name' not in st.session_state or not st.session_state['statistics_full_name']:
+    if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
         st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
         return
     # (Removed duplicate display of audit name in statistics page)
@@ -90,9 +90,11 @@ def statistics_tab():
         EMAIL_PASSWORD = st.secrets["email_password"]
         SMTP_SERVER = st.secrets["smtp_server"]
         SMTP_PORT = st.secrets["smtp_port"]
-        # Add total row
+        # Add total row and sort by Name
         df_csv_out = df_csv.copy()
         if not df_csv_out.empty:
+            if 'Name' in df_csv_out.columns:
+                df_csv_out = df_csv_out.sort_values(by=["Name"]).reset_index(drop=True)
             df_csv_out['Amount'] = df_csv_out['Amount'].apply(lambda x: float(x))
             total_amt = df_csv_out['Amount'].sum()
             total_row = {col: '' for col in df_csv_out.columns}
@@ -119,7 +121,7 @@ def statistics_tab():
                 st.error(f"Failed to send email to {recipient}: {e}")
 
     if st.button("Send Sponsored Records Report (CSV)"):
-        audit_name = st.session_state.get('statistics_full_name', '')
+        audit_name = st.session_state.get('admin_full_name', '')
         body = f"""
 <b>Sponsored Records Report (CSV attached)</b><br><br>
 Total records: {len(df)}<br>
@@ -150,8 +152,25 @@ Triggered Report by: <b>{audit_name}</b><br>
             "Remaining Slot Available": remaining
         })
     df_available = pd.DataFrame(available_data)
+
     st.markdown("### 📋 Available Sponsorship Items")
     st.dataframe(df_available)
+
+    # Move the CSV export button here
+    if st.button("Send Available Items Report (CSV)", key="available_items_csv_btn"):
+        audit_name = st.session_state.get('admin_full_name', '')
+        body = f"""
+<b>Available Sponsorship Items Report (CSV attached)</b><br><br>
+Date: {datetime.date.today()}<br>
+Triggered Report by: <b>{audit_name}</b><br>
+"""
+        send_csv_email(
+            "Ganesh Chaturthi Sponsorship - Available Items CSV Report",
+            body,
+            df_available,
+            f"available_items_{datetime.date.today()}.csv"
+        )
+        st.success("Available items report sent!")
 
     # Bar chart for item total and remaining slots
     st.markdown("### 📊 Sponsorship Item Slot Distribution")
@@ -187,19 +206,6 @@ Triggered Report by: <b>{audit_name}</b><br>
     else:
         st.info("No donations recorded yet.")
 
-    if st.button("Send Available Items Report (CSV)"):
-        audit_name = st.session_state.get('statistics_full_name', '')
-        body = f"""
-<b>Available Sponsorship Items Report (CSV attached)</b><br><br>
-Date: {datetime.date.today()}<br>
-Triggered Report by: <b>{audit_name}</b><br>
-"""
-        send_csv_email(
-            "Ganesh Chaturthi Sponsorship - Available Items CSV Report",
-            body,
-            df_available,
-            f"available_items_{datetime.date.today()}.csv"
-        )
-        st.success("Available items report sent!")
+
 
     # Removed Bar Chart of Sponsorships as requested

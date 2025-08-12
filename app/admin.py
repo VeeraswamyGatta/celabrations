@@ -107,18 +107,28 @@ def admin_tab(menu="Sponsorship Items"):
         df_pay_names = pd.read_sql("SELECT name FROM payment_details", conn)
         paid_names_set = set(df_pay_names["name"].tolist())
         unpaid_names = [n for n in sponsor_names if n not in paid_names_set]
-        if 'add_pay_selected_name' not in st.session_state or st.session_state['add_pay_selected_name'] not in unpaid_names:
-            st.session_state['add_pay_selected_name'] = unpaid_names[0] if unpaid_names else ''
+        # Add a placeholder for selectbox
+        name_options = ["-- Select Name --"] + unpaid_names if unpaid_names else ["-- No Names Available --"]
+        if 'add_pay_selected_name' not in st.session_state or st.session_state['add_pay_selected_name'] not in name_options:
+            st.session_state['add_pay_selected_name'] = name_options[0]
         if 'add_pay_payment_type' not in st.session_state:
             st.session_state['add_pay_payment_type'] = 'PayPal'
         def update_amount():
             name = st.session_state['add_pay_selected_name']
             amt = float(sponsor_df[sponsor_df["name"] == name]["total_amount"].values[0]) if name in sponsor_names else 0.0
             st.session_state['add_pay_amount'] = amt
-        name = st.selectbox("Name", unpaid_names, key="add_pay_selected_name", on_change=update_amount)
+
+        # Only update amount if the name was changed by the user (not on every rerun)
+        if 'add_pay_last_selected_name' not in st.session_state:
+            st.session_state['add_pay_last_selected_name'] = st.session_state['add_pay_selected_name']
+
+        name = st.selectbox("Name", name_options, key="add_pay_selected_name")
         payment_type = st.selectbox("Payment Type", ["PayPal", "Zelle"], key="add_pay_payment_type")
-        if 'add_pay_amount' not in st.session_state or st.session_state['add_pay_selected_name'] != name:
+
+        if st.session_state['add_pay_last_selected_name'] != st.session_state['add_pay_selected_name']:
             update_amount()
+            st.session_state['add_pay_last_selected_name'] = st.session_state['add_pay_selected_name']
+
         default_amount = st.session_state.get('add_pay_amount', 0.0)
         import pytz
         from datetime import datetime, time
@@ -131,26 +141,30 @@ def admin_tab(menu="Sponsorship Items"):
             with col2:
                 date = st.date_input("Date", key="add_pay_date")
                 comments = st.text_input("Comments", key="add_pay_comments")
-            if st.form_submit_button("Add Payment Detail"):
-                try:
-                    # Convert date to CST/CDT (America/Chicago)
-                    tz = pytz.timezone('America/Chicago')
-                    dt_naive = datetime.combine(date, time.min)
-                    dt_cst = tz.localize(dt_naive)
-                    date_cst = dt_cst.date()
-                    cursor.execute(
-                        "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
-                        (name, amount, date_cst, comments, payment_type)
-                    )
-                    conn.commit()
-                    st.success("✅ Payment detail added!")
-                    st.rerun()
-                except Exception as e:
-                    conn.rollback()
-                    st.error(f"❌ Failed to add payment detail: {e}")
+            submit = st.form_submit_button("Add Payment Detail")
+            if submit:
+                if name == "-- Select Name --" or name == "-- No Names Available --":
+                    st.warning("Please select a name before submitting.")
+                else:
+                    try:
+                        # Convert date to CST/CDT (America/Chicago)
+                        tz = pytz.timezone('America/Chicago')
+                        dt_naive = datetime.combine(date, time.min)
+                        dt_cst = tz.localize(dt_naive)
+                        date_cst = dt_cst.date()
+                        cursor.execute(
+                            "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
+                            (name, amount, date_cst, comments, payment_type)
+                        )
+                        conn.commit()
+                        st.success("✅ Payment detail added!")
+                        st.rerun()
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"❌ Failed to add payment detail: {e}")
 
         # Delete Payment Detail section last
-        df_pay = pd.read_sql("SELECT id, name, amount, date, comments FROM payment_details ORDER BY date DESC, id DESC", conn)
+        df_pay = pd.read_sql("SELECT id, name, amount, date, comments FROM payment_details ORDER BY name ASC, id DESC", conn)
         if not df_pay.empty:
             st.markdown("<h3 style='color: #6A1B9A;'>🗑️ Delete Payment Detail</h3>", unsafe_allow_html=True)
             pay_names = df_pay["name"].tolist()
