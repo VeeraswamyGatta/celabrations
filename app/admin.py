@@ -112,6 +112,8 @@ def admin_tab(menu="Sponsorship Items"):
         if 'add_pay_amount' not in st.session_state or st.session_state['add_pay_selected_name'] != name:
             update_amount()
         default_amount = st.session_state.get('add_pay_amount', 0.0)
+        import pytz
+        from datetime import datetime, time
         with st.form("add_payment_detail_form"):
             col1, col2 = st.columns(2)
             with col1:
@@ -123,9 +125,14 @@ def admin_tab(menu="Sponsorship Items"):
                 comments = st.text_input("Comments", key="add_pay_comments")
             if st.form_submit_button("Add Payment Detail"):
                 try:
+                    # Convert date to CST/CDT (America/Chicago)
+                    tz = pytz.timezone('America/Chicago')
+                    dt_naive = datetime.combine(date, time.min)
+                    dt_cst = tz.localize(dt_naive)
+                    date_cst = dt_cst.date()
                     cursor.execute(
                         "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
-                        (name, amount, date, comments, payment_type)
+                        (name, amount, date_cst, comments, payment_type)
                     )
                     conn.commit()
                     st.success("✅ Payment detail added!")
