@@ -28,9 +28,14 @@ from email.mime.text import MIMEText
 def statistics_tab():
     # --- Combined PayPal + Zelle Total ---    
     st.session_state['active_tab'] = 'Statistics'
+    # --- Audit trail: Your Full Name ---
+    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
+    if 'statistics_full_name' not in st.session_state or not st.session_state['statistics_full_name']:
+        st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
+        return
+    # (Removed duplicate display of audit name in statistics page)
     conn = get_connection()
     cursor = conn.cursor()
-    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
 
     # Build sponsorship records with type and split item/donation, and show correct sponsored amount
     raw_df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
@@ -61,7 +66,11 @@ def statistics_tab():
             })
     df = pd.DataFrame(records)
     st.markdown("### 📋 Sponsorship Records")
-    st.dataframe(df)
+    df_display = df.copy()
+    if 'Name' in df_display.columns:
+        df_display = df_display.sort_values(by=["Name"]).reset_index(drop=True)
+    df_display.index = range(1, len(df_display) + 1)
+    st.dataframe(df_display)
     # Add total row at the bottom
     if not df.empty:
         df_amt = df.copy()
@@ -110,10 +119,12 @@ def statistics_tab():
                 st.error(f"Failed to send email to {recipient}: {e}")
 
     if st.button("Send Sponsored Records Report (CSV)"):
+        audit_name = st.session_state.get('statistics_full_name', '')
         body = f"""
 <b>Sponsored Records Report (CSV attached)</b><br><br>
 Total records: {len(df)}<br>
 Date: {datetime.date.today()}<br>
+Triggered Report by: <b>{audit_name}</b><br>
 """
         send_csv_email(
             "Ganesh Chaturthi Sponsorship - Sponsored Records CSV Report",
@@ -177,9 +188,11 @@ Date: {datetime.date.today()}<br>
         st.info("No donations recorded yet.")
 
     if st.button("Send Available Items Report (CSV)"):
+        audit_name = st.session_state.get('statistics_full_name', '')
         body = f"""
 <b>Available Sponsorship Items Report (CSV attached)</b><br><br>
 Date: {datetime.date.today()}<br>
+Triggered Report by: <b>{audit_name}</b><br>
 """
         send_csv_email(
             "Ganesh Chaturthi Sponsorship - Available Items CSV Report",

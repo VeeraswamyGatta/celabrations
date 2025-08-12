@@ -52,11 +52,12 @@ def admin_tab(menu="Sponsorship Items"):
             # Received: Payment details table
             df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
             if not df_pay.empty:
-                # Hide 'id' column if present
+                # Hide 'id' column if present, and reset index for clean display
                 display_df = df_pay.copy()
                 if 'id' in display_df.columns:
                     display_df = display_df.drop(columns=["id"])
-                display_df = display_df.sort_values(by=["name"])  # Sort by Name
+                display_df = display_df.sort_values(by=["name"]).reset_index(drop=True)  # Sort by Name
+                display_df.index = display_df.index + 1  # Start index from 1
                 st.dataframe(display_df, use_container_width=True)
                 total_amount = display_df["amount"].sum()
                 st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
@@ -92,7 +93,8 @@ def admin_tab(menu="Sponsorship Items"):
             paid_names = set(df_pay["name"].tolist())
             not_received_df = sponsor_df[~sponsor_df["name"].isin(paid_names)][["name", "total_amount"]]
             not_received_df = not_received_df.rename(columns={"name": "Name", "total_amount": "Amount"})
-            not_received_df = not_received_df.sort_values(by=["Name"])  # Sort by Name
+            not_received_df = not_received_df.sort_values(by=["Name"]).reset_index(drop=True)  # Sort by Name
+            not_received_df.index = not_received_df.index + 1  # Start index from 1
             # Hide 'id' column if present (shouldn't be, but for safety)
             if 'id' in not_received_df.columns:
                 not_received_df = not_received_df.drop(columns=["id"])
@@ -169,8 +171,29 @@ def admin_tab(menu="Sponsorship Items"):
             if st.button("Delete Payment Detail"):
                 if confirm_name.strip() == pay_row['name']:
                     try:
+                        # Fetch notification emails
+                        cursor.execute("SELECT email FROM notification_emails")
+                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                        deleted_details = f"""
+<b>Payment Detail Deleted</b><br><br>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{pay_row['name']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Amount</th><td>${pay_row['amount']:,.2f}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Date</th><td>{pay_row['date']}</td></tr>
+    <tr><th style='{TABLE_HEADER_STYLE}'>Comments</th><td>{pay_row['comments'] or ''}</td></tr>
+</table>
+<br><b>Modified By:</b> {admin_full_name}
+"""
                         cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
                         conn.commit()
+                        # Send email to notification_emails
+                        if notification_emails:
+                            send_email(
+                                "Ganesh Chaturthi Payment Detail Deleted",
+                                deleted_details,
+                                notification_emails
+                            )
                         st.success("🗑️ Payment detail deleted!")
                         st.rerun()
                     except Exception as e:
@@ -183,14 +206,17 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Sponsorship Items":
         st.markdown("<h2 style='color: #6A1B9A;'>Sponsorship Items Overview</h2>", unsafe_allow_html=True)
         df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
-        # Show table with index starting from 1
+        # Show table with index starting from 1 and hide 'id' column
         df_display = df.copy()
+        if 'id' in df_display.columns:
+            df_display = df_display.drop(columns=["id"])
         df_display.index = df_display.index + 1
         st.dataframe(df_display)
 
         st.markdown("<h3 style='color: #6A1B9A;'>✏️ Edit Existing Item</h3>", unsafe_allow_html=True)
-        item_id = st.selectbox("Select Item ID", df["id"].tolist())
-        item_row = df[df.id == item_id].iloc[0]
+        item_names = df["item"].tolist()
+        selected_item_name = st.selectbox("Select Item Name", item_names)
+        item_row = df[df["item"] == selected_item_name].iloc[0]
         new_item_name = st.text_input("Item Name", value=item_row["item"])
         st.write(f"Amount: ${float(item_row['amount']):,.2f}")
         st.write(f"Limit: {int(item_row['sponsor_limit'])}")
@@ -198,7 +224,7 @@ def admin_tab(menu="Sponsorship Items"):
         if st.button("Update Item"):
             try:
                 cursor.execute("UPDATE sponsorship_items SET item=%s WHERE id=%s",
-                               (new_item_name, item_id))
+                               (new_item_name, item_row["id"]))
                 conn.commit()
                 st.success("✅ Item updated successfully!")
             except Exception as e:
@@ -262,13 +288,20 @@ def admin_tab(menu="Sponsorship Items"):
             col_order = ['name', 'email', 'mobile', 'apartment', 'gothram', 'Type', 'Donation/Sponsorship Amount']
             display_df = display_df[[c for c in col_order if c in display_df.columns]]
             display_df = display_df.rename(columns={col: col.replace('_', ' ').title() for col in display_df.columns})
-            # Show table with index starting from 1
+            # Show table with index starting from 1 and sorted by Name, keep id column
             display_df_display = display_df.copy()
-            display_df_display.index = display_df_display.index + 1
+            if 'Name' in display_df_display.columns:
+                display_df_display = display_df_display.sort_values(by=["Name"])
+            elif 'name' in display_df_display.columns:
+                display_df_display = display_df_display.sort_values(by=["name"])
+            display_df_display.index = range(1, len(display_df_display) + 1)
             st.dataframe(display_df_display, use_container_width=True)
+            # Sort sponsor names for selection
             sponsor_names = sorted(df_sponsors["name"].tolist())
             selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
-            sponsor_row = df_sponsors[df_sponsors.name == selected_name].iloc[0]
+            # Sort df_sponsors by name for consistent lookup
+            df_sponsors_sorted = df_sponsors.sort_values(by=["name"])
+            sponsor_row = df_sponsors_sorted[df_sponsors_sorted.name == selected_name].iloc[0]
             sponsor_id = int(sponsor_row["id"])
             # Move Edit/Delete selection to the top
             action = st.radio("Choose Action", ["Edit Record", "Delete Record"], horizontal=True)
@@ -416,6 +449,7 @@ def admin_tab(menu="Sponsorship Items"):
         df_emails = pd.read_sql("SELECT * FROM notification_emails ORDER BY id", conn)
         if not df_emails.empty:
             display_emails = df_emails.drop(columns=["id"])
+            display_emails.index = display_emails.index + 1
             st.dataframe(display_emails, use_container_width=True)
             email_list = df_emails["email"].tolist()
             selected_email = st.selectbox("Select Email to Edit/Delete", email_list)

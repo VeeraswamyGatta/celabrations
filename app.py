@@ -107,15 +107,26 @@ elif main_menu == "📊 Statistics":
         with st.form("admin_login_stats"):
             user = st.text_input("Username")
             pwd = st.text_input("Password", type="password")
+            full_name = st.text_input("Your Full Name (for audit trail) *", key="stats_login_full_name", placeholder="Enter your full name")
             login = st.form_submit_button("Login")
         if login:
-            if user == ADMIN_USERNAME and pwd == get_admin_password():
+            if not user.strip():
+                st.error("Username is required.")
+            elif not pwd.strip():
+                st.error("Password is required.")
+            elif not full_name.strip():
+                st.error("Your Full Name is required for audit trail.")
+            elif user == ADMIN_USERNAME and pwd == get_admin_password():
                 st.session_state.admin_logged_in = True
+                st.session_state.statistics_full_name = full_name.strip()
                 st.success("✅ Admin access granted!")
                 st.rerun()
             else:
                 st.error("❌ Invalid admin credentials")
     else:
+        if 'statistics_full_name' not in st.session_state or not st.session_state['statistics_full_name']:
+            st.session_state['statistics_full_name'] = ''
+            st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
         statistics_tab()
 elif main_menu == "🔐 Admin":
     if not st.session_state.admin_logged_in:
