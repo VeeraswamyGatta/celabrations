@@ -308,8 +308,10 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         # Show donor table before donation field
         cursor.execute("SELECT name, donation FROM sponsors WHERE donation IS NOT NULL AND donation > 0 ORDER BY donation DESC")
         donor_rows = cursor.fetchall()
-        if donor_rows:
-            donor_df = pd.DataFrame(donor_rows, columns=["Donor Name", "Amount"])
+        # Only show donors with donation >= 5
+        donor_rows_filtered = [row for row in donor_rows if row[1] >= 5]
+        if donor_rows_filtered:
+            donor_df = pd.DataFrame(donor_rows_filtered, columns=["Donor Name", "Amount"])
             donor_df["Amount"] = donor_df["Amount"].apply(lambda x: f"${x}")
             donor_df.index = donor_df.index + 1  # Start index from 1
             st.markdown("<b>🙏 Donors</b>", unsafe_allow_html=True)
