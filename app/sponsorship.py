@@ -431,6 +431,8 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                     paypal_html += f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
                 else:
                     paypal_html += "<span style='color:#d32f2f;'>PayPal link not available.</span>"
+                # Always add Zelle payment instructions below PayPal
+                paypal_html += "<br><b>For Zelle payment, pay money to any one of these persons: <span style='color:#1565C0;'>Purna Magum / Ganesh Thamma</span></b>"
                 send_email(
                     "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
                     f"""

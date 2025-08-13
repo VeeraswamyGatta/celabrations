@@ -95,7 +95,7 @@ if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
 if not st.session_state.user_logged_in:
-    st.markdown("<h1 style='text-align: center; color: #1565C0;'>User Login</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1565C0;'>Login</h1>", unsafe_allow_html=True)
     with st.form("user_login_form"):
         user = st.text_input("Username")
         pwd = st.text_input("Password", type="password")
