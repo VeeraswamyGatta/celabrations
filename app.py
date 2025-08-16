@@ -1,4 +1,3 @@
-
 import streamlit as st
 from streamlit_option_menu import option_menu
 import datetime
@@ -162,27 +161,29 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
                 st.error("❌ Invalid admin credentials")
 else:
     # Show contributions page after successful login
-    with st.sidebar:
-        menu_items = ["🎉 Sponsorship & Donation", "📅 Events"]
-        menu_icons = ["gift", "calendar-event"]
-        if st.session_state.admin_logged_in:
-            menu_items += ["📊 Statistics", "🔐 Admin"]
-            menu_icons += ["bar-chart", "lock"]
-        main_menu = option_menu(
-            "Menu",
-            menu_items,
-            icons=menu_icons,
-            menu_icon="cast",
-            default_index=0,
-            orientation="vertical"
-        )
+    menu_items = ["Contributions", "Events", "Prasad Seva"]
+    menu_icons = ["gift", "calendar-event", "award"]
+    if st.session_state.admin_logged_in:
+        menu_items += ["📊 Statistics", "🔐 Admin"]
+        menu_icons += ["bar-chart", "lock"]
+    main_menu = option_menu(
+        "Menu",
+        menu_items,
+        icons=menu_icons,
+        menu_icon="cast",
+        default_index=0,
+        orientation="horizontal"
+    )
 
-    if main_menu == "🎉 Sponsorship & Donation":
+    if main_menu == "Contributions":
         sponsorship_tab()
-    elif main_menu == "📅 Events":
+    elif main_menu == "Events":
         if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
             st.session_state['admin_full_name'] = ''
         events_tab()
+    elif main_menu == "Prasad Seva":
+        from app.prasad_seva import prasad_seva_tab
+        prasad_seva_tab()
     elif st.session_state.admin_logged_in and main_menu == "📊 Statistics":
         statistics_tab()
     elif st.session_state.admin_logged_in and main_menu == "🔐 Admin":
