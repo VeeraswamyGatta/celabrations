@@ -196,11 +196,16 @@ else:
                 "Sponsorship Items",
                 "Sponsorship Record",
                 "Manage Notification Emails",
-                "Payment Details"
+                "Payment Details",
+                "Expenses"
             ],
-            icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
+            icons=["list-task", "pencil-square", "envelope-fill", "credit-card", "cash-coin"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"
         )
-        admin_tab(menu=admin_menu)
+        if admin_menu == "Expenses":
+            from app.expenses import expenses_tab
+            expenses_tab()
+        else:
+            admin_tab(menu=admin_menu)
