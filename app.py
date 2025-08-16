@@ -53,8 +53,12 @@ st.image(ganesh_img, width=70)
 
 ADMIN_USERNAME = st.secrets["admin_user"]
 ADMIN_PASSWORD_BASE = st.secrets["admin_pass"]
+import pytz
 def get_admin_password():
-    today_day = datetime.date.today().strftime('%d')
+    cst = pytz.timezone('US/Central')
+    now_utc = datetime.datetime.now(pytz.utc)
+    now_cst = now_utc.astimezone(cst)
+    today_day = now_cst.strftime('%d')
     return f"{ADMIN_PASSWORD_BASE}{today_day}"
 
 # ---------- DB Setup ----------

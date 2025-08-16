@@ -47,27 +47,28 @@ def events_tab():
             st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
         else:
             st.info("No events added yet.")
-        # Now show the admin login form after the table
-        st.markdown("<h3 style='color:#2E7D32;'>Admin Login Required to Add or Edit Events</h3>", unsafe_allow_html=True)
-        with st.form("admin_login_events"):
-            user = st.text_input("Username")
-            pwd = st.text_input("Password", type="password")
-            full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_events_full_name", placeholder="Enter your full name")
-            login = st.form_submit_button("Login")
-        if login:
-            if not user.strip():
-                st.error("Username is required.")
-            elif not pwd.strip():
-                st.error("Password is required.")
-            elif not full_name.strip():
-                st.error("Your Full Name is required for audit trail.")
-            elif user == ADMIN_USERNAME and pwd == get_admin_password():
-                st.session_state.admin_logged_in = True
-                st.session_state.admin_full_name = full_name.strip()
-                st.success("✅ Admin access granted!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid admin credentials")
+        # Only show admin login prompt if not logged in as user
+        if not st.session_state.get("user_logged_in", False):
+            st.markdown("<h3 style='color:#2E7D32;'>Admin Login Required to Add or Edit Events</h3>", unsafe_allow_html=True)
+            with st.form("admin_login_events"):
+                user = st.text_input("Username")
+                pwd = st.text_input("Password", type="password")
+                full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_events_full_name", placeholder="Enter your full name")
+                login = st.form_submit_button("Login")
+            if login:
+                if not user.strip():
+                    st.error("Username is required.")
+                elif not pwd.strip():
+                    st.error("Password is required.")
+                elif not full_name.strip():
+                    st.error("Your Full Name is required for audit trail.")
+                elif user == ADMIN_USERNAME and pwd == get_admin_password():
+                    st.session_state.admin_logged_in = True
+                    st.session_state.admin_full_name = full_name.strip()
+                    st.success("✅ Admin access granted!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid admin credentials")
         return
 
     # Admin is logged in: show full add/edit/delete UI
