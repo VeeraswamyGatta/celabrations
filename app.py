@@ -94,55 +94,80 @@ USER_PASSWORD = st.secrets["user_password"]
 if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
-if not st.session_state.user_logged_in:
+if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Login</h1>", unsafe_allow_html=True)
-    with st.form("user_login_form"):
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-        login = st.form_submit_button("Login")
-    if login:
-        errors = []
-        if not user.strip():
-            errors.append("Username is required.")
-        if not pwd.strip():
-            errors.append("Password is required.")
-        # Apartment number validation: if password ends with digits, treat as apartment number
-        apartment = None
-        base_pwd = USER_PASSWORD
-        apt_num = None
-        if pwd.startswith(base_pwd) and len(pwd) > len(base_pwd):
-            apt_str = pwd[len(base_pwd):]
-            if apt_str.isdigit():
-                apt_num = int(apt_str)
-                if not (100 <= apt_num <= 1600):
-                    pass  # Do not append error for apartment number range
-                else:
-                    apartment = apt_str
-            else:
-                errors.append("Apartment Number must be numeric and follow the password.")
-        elif pwd == base_pwd:
+    role = st.selectbox("Login as", ["User", "Admin"], index=0)
+    if role == "User":
+        with st.form("user_login_form"):
+            user = st.text_input("Username")
+            pwd = st.text_input("Password", type="password")
+            login = st.form_submit_button("Login")
+        if login:
+            errors = []
+            if not user.strip():
+                errors.append("Username is required.")
+            if not pwd.strip():
+                errors.append("Password is required.")
             apartment = None
-        else:
-            errors.append("Username or password is incorrect.")
-        # Validate username
-        if user != USER_USERNAME:
-            errors.append("Invalid username.")
-        if errors:
-            for err in errors:
-                st.error(err)
-            st.info("For login issues, please reach out in the Ganesh Chaturthi celebrations 2025 WhatsApp group.")
-        else:
-            st.session_state.user_logged_in = True
-            st.session_state.user_apartment = apartment if apartment else ""
-            st.success("✅ User login successful!")
-            st.rerun()
+            base_pwd = USER_PASSWORD
+            apt_num = None
+            if pwd.startswith(base_pwd) and len(pwd) > len(base_pwd):
+                apt_str = pwd[len(base_pwd):]
+                if apt_str.isdigit():
+                    apt_num = int(apt_str)
+                    if not (100 <= apt_num <= 1600):
+                        pass
+                    else:
+                        apartment = apt_str
+                else:
+                    errors.append("Apartment Number must be numeric and follow the password.")
+            elif pwd == base_pwd:
+                apartment = None
+            else:
+                errors.append("Username or password is incorrect.")
+            if user != USER_USERNAME:
+                errors.append("Invalid username.")
+            if errors:
+                for err in errors:
+                    st.error(err)
+                st.info("For login issues, please reach out in the Ganesh Chaturthi celebrations 2025 WhatsApp group.")
+            else:
+                st.session_state.user_logged_in = True
+                st.session_state.user_apartment = apartment if apartment else ""
+                st.success("✅ User login successful!")
+                st.rerun()
+    else:
+        with st.form("admin_login_form"):
+            user = st.text_input("Admin Username")
+            pwd = st.text_input("Admin Password", type="password")
+            full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_full_name", placeholder="Enter your full name")
+            login = st.form_submit_button("Login")
+        if login:
+            if not user.strip():
+                st.error("Username is required.")
+            elif not pwd.strip():
+                st.error("Password is required.")
+            elif not full_name.strip():
+                st.error("Your Full Name is required for audit trail.")
+            elif user == ADMIN_USERNAME and pwd == get_admin_password():
+                st.session_state.admin_logged_in = True
+                st.session_state.admin_full_name = full_name.strip()
+                st.success("✅ Admin access granted!")
+                st.rerun()
+            else:
+                st.error("❌ Invalid admin credentials")
 else:
     # Show contributions page after successful login
     with st.sidebar:
+        menu_items = ["🎉 Sponsorship & Donation", "📅 Events"]
+        menu_icons = ["gift", "calendar-event"]
+        if st.session_state.admin_logged_in:
+            menu_items += ["📊 Statistics", "🔐 Admin"]
+            menu_icons += ["bar-chart", "lock"]
         main_menu = option_menu(
             "Menu",
-            ["🎉 Sponsorship & Donation", "📅 Events", "📊 Statistics", "🔐 Admin"],
-            icons=["gift", "calendar-event", "bar-chart", "lock"],
+            menu_items,
+            icons=menu_icons,
             menu_icon="cast",
             default_index=0,
             orientation="vertical"
@@ -154,70 +179,22 @@ else:
         if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
             st.session_state['admin_full_name'] = ''
         events_tab()
-    elif main_menu == "📊 Statistics":
-        if not st.session_state.admin_logged_in:
-            st.markdown("<h1 style='text-align: center; color: #6A1B9A;'>Admin Login Required</h1>", unsafe_allow_html=True)
-            with st.form("admin_login_stats"):
-                user = st.text_input("Username")
-                pwd = st.text_input("Password", type="password")
-                full_name = st.text_input("Your Full Name (for audit trail) *", key="stats_login_full_name", placeholder="Enter your full name")
-                login = st.form_submit_button("Login")
-            if login:
-                if not user.strip():
-                    st.error("Username is required.")
-                elif not pwd.strip():
-                    st.error("Password is required.")
-                elif not full_name.strip():
-                    st.error("Your Full Name is required for audit trail.")
-                elif user == ADMIN_USERNAME and pwd == get_admin_password():
-                    st.session_state.admin_logged_in = True
-                    st.session_state.admin_full_name = full_name.strip()
-                    st.success("✅ Admin access granted!")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid admin credentials")
-        else:
-            if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
-                st.session_state['admin_full_name'] = ''
-                st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
-            else:
-                statistics_tab()
-    elif main_menu == "🔐 Admin":
-        if not st.session_state.admin_logged_in:
-            with st.form("admin_login_admin"):
-                user = st.text_input("Username")
-                pwd = st.text_input("Password", type="password")
-                full_name = st.text_input("Your Full Name (for audit trail) *", key="admin_login_full_name", placeholder="Enter your full name")
-                login = st.form_submit_button("Login")
-            if login:
-                if not user.strip():
-                    st.error("Username is required.")
-                elif not pwd.strip():
-                    st.error("Password is required.")
-                elif not full_name.strip():
-                    st.error("Your Full Name is required for audit trail.")
-                elif user == ADMIN_USERNAME and pwd == get_admin_password():
-                    st.session_state.admin_logged_in = True
-                    st.session_state.admin_full_name = full_name.strip()
-                    st.success("✅ Admin access granted!")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid admin credentials")
-        else:
-            # Admin submenu
-            if 'admin_full_name' not in st.session_state:
-                st.session_state.admin_full_name = ''
-            admin_menu = option_menu(
-                "Admin Sections",
-                [
-                    "Sponsorship Items",
-                    "Sponsorship Record",
-                    "Manage Notification Emails",
-                    "Payment Details"
-                ],
-                icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
-                menu_icon="gear",
-                default_index=0,
-                orientation="vertical"
-            )
-            admin_tab(menu=admin_menu)
+    elif st.session_state.admin_logged_in and main_menu == "📊 Statistics":
+        statistics_tab()
+    elif st.session_state.admin_logged_in and main_menu == "🔐 Admin":
+        if 'admin_full_name' not in st.session_state:
+            st.session_state.admin_full_name = ''
+        admin_menu = option_menu(
+            "Admin Sections",
+            [
+                "Sponsorship Items",
+                "Sponsorship Record",
+                "Manage Notification Emails",
+                "Payment Details"
+            ],
+            icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
+            menu_icon="gear",
+            default_index=0,
+            orientation="vertical"
+        )
+        admin_tab(menu=admin_menu)

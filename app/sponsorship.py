@@ -157,8 +157,26 @@ Your generous support will help us make this year’s festivities vibrant and me
 <b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${paypal_amount:,.2f} + ${zelle_amount:,.2f} = ${combined_total:,.2f}</span>
 </div>
 """, unsafe_allow_html=True)
-    # Only show the info message if not on the submission thank you page
-    if not (st.session_state.get('show_submission') and st.session_state.get('submitted_data')):
+
+    # --- Custom logic for user login and sponsorship limit ---
+    show_submission_inputs = True
+    sponsorship_limit = st.secrets.get("sponsorship_amount_limit", 0)
+    # Only apply for user login, not admin
+    if st.session_state.get("user_logged_in") and not st.session_state.get("admin_logged_in"):
+        if sponsorship_limit and sponsorship_limit < total_combined:
+            st.markdown("""
+<br>
+<div style='font-size:1.18em; color:#d32f2f; font-weight:bold; border:2px solid #d32f2f; border-radius:8px; padding:12px; background:#fff3f3; margin-bottom: 0.5em;'>
+<span style='font-size:1.25em;'>❗</span> Thanks for reaching the sponsorship goal for the Ganesh Chaturthi celebration.<br>
+We are sorry, direct submissions are now closed.<br>
+<span style='font-size:1.05em;'>Please reach out in the <b>Ganesh Chaturthi celebrations 2025 WhatsApp group</b> to participate.<br>
+The team will collect your information and submit it for you.</span>
+</div>
+""", unsafe_allow_html=True)
+            show_submission_inputs = False
+
+    # Only show the info message if not on the submission thank you page and submission is allowed
+    if not (st.session_state.get('show_submission') and st.session_state.get('submitted_data')) and show_submission_inputs:
         st.markdown("""
 <br>
 <div style='font-size:1.08em; color:#d32f2f; margin-bottom: 0.5em;'>
@@ -180,11 +198,16 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
             st.session_state['submitted_data'] = None
             st.experimental_rerun()
         return
-    name = st.text_input("👤 Your Name", help="Please enter your full name", placeholder="E.g., Raghava Rao")
-    apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
-    email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
-    gothram = st.text_input("🪔 Gothram (optional)", help="Enter your family Gothram (optional)", placeholder="E.g., Bharadwaja, Kashyapa, etc.")
-    mobile = st.text_input("📱 Mobile Number (optional)", help="10-digit US phone number (no country code)", placeholder="E.g., 5121234567")
+
+    # Only show submission inputs if allowed
+    if show_submission_inputs:
+        name = st.text_input("👤 Your Name", help="Please enter your full name", placeholder="E.g., Raghava Rao")
+        apartment = st.text_input("🏢 Your Apartment Number", help="Apartment number must be between 100 and 1600", placeholder="E.g., 305")
+        email = st.text_input("📧 Email Address (optional)", help="Get notifications and receipts to your email", placeholder="your@email.com")
+        gothram = st.text_input("🪔 Gothram (optional)", help="Enter your family Gothram (optional)", placeholder="E.g., Bharadwaja, Kashyapa, etc.")
+        mobile = st.text_input("📱 Mobile Number (optional)", help="10-digit US phone number (no country code)", placeholder="E.g., 5121234567")
+    else:
+        name = apartment = email = gothram = mobile = ""
 
     # --- High-level statistics ---
     # Get all sponsorship items
@@ -328,125 +351,117 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         return ' '.join(word.capitalize() for word in name.strip().split())
 
     submit_disabled = st.session_state.get('show_submission', False)
-    if st.button("✅ Submit", key="sponsorship_submit", disabled=submit_disabled):
-        errors = []
-        name_val = format_name(name)
-        if not name_val:
-            errors.append("Name is required.")
-        if not apartment.strip():
-            errors.append("Apartment Number is required.")
-        else:
-            try:
-                apt_num = int(apartment.strip())
-                if not (100 <= apt_num <= 1600):
-                    errors.append("Apartment Number must be between 100 and 1600.")
-            except ValueError:
-                errors.append("Apartment Number must be a number between 100 and 1600.")
-        if not selected_items and donation == 0:
-            errors.append("Please sponsor at least one item or donate an amount.")
-        # Basic email validation
-        if email.strip():
-            if '@' not in email or not email.strip().lower().endswith('.com'):
-                errors.append("Please enter a valid email address (must contain '@' and end with .com)")
+    if show_submission_inputs:
+        if st.button("✅ Submit", key="sponsorship_submit", disabled=submit_disabled):
+            errors = []
+            name_val = format_name(name)
+            if not name_val:
+                errors.append("Name is required.")
+            if not apartment.strip():
+                errors.append("Apartment Number is required.")
+            else:
+                try:
+                    apt_num = int(apartment.strip())
+                    if not (100 <= apt_num <= 1600):
+                        errors.append("Apartment Number must be between 100 and 1600.")
+                except ValueError:
+                    errors.append("Apartment Number must be a number between 100 and 1600.")
+            if not selected_items and donation == 0:
+                errors.append("Please sponsor at least one item or donate an amount.")
+            # Basic email validation
+            if email.strip():
+                if '@' not in email or not email.strip().lower().endswith('.com'):
+                    errors.append("Please enter a valid email address (must contain '@' and end with .com)")
 
-        phone_valid, phone_fmt = True, mobile
-        if mobile.strip():
-            phone_valid, phone_fmt = validate_us_phone(mobile)
-            if not phone_valid:
-                errors.append("Please enter a valid 10-digit US phone number.")
-        if errors:
-            for err in errors:
-                st.error(err)
-        else:
-            try:
-                # Calculate sponsorship item total as (amount / sponsor_limit) for each selected item
-                sponsorship_total = 0
-                if selected_items:
-                    format_strings = ','.join(['%s'] * len(selected_items))
-                    cursor.execute(f"SELECT amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
-                    sponsorship_total = sum([row[0] / row[1] if row[1] else 0 for row in cursor.fetchall()])
-                contributed_amount = sponsorship_total + (donation if donation else 0)
-                # Format to 2 decimal places for display and email
-                contributed_amount = round(contributed_amount, 2)
-                for idx, item in enumerate(selected_items):
-                    d = donation if idx == 0 else 0
-                    cursor.execute("""
-                        INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
-                if not selected_items and donation > 0:
-                    cursor.execute("""
-                        INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
-                        VALUES (%s, %s, %s, %s, %s, NULL, %s)
-                    """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
-                conn.commit()
-                # Prepare submitted data for display
-                submitted_data = {
-                    "Name": name_val,
-                    "Email": email,
-                    "Gothram": gothram,
-                    "Mobile": phone_fmt.strip(),
-                    "Apartment": apartment
-                }
-                if selected_items:
-                    submitted_data["Sponsorship Items"] = selected_items.copy()
-                if donation > 0:
-                    submitted_data["Donation"] = f"${donation}"
-                if (selected_items or donation > 0) and contributed_amount:
-                    submitted_data["Contributed Amount"] = f"${contributed_amount}"
-                st.session_state['submitted_data'] = submitted_data
-                st.session_state['show_submission'] = True
-                # Send email to notification_emails and the submitter (if provided)
-                notification_emails = get_notification_emails()
-                recipients = list(notification_emails)
-                if email.strip():
-                    recipients.append(email.strip())
-                recipients = list(set(recipients))
-                # Build email table rows in detailed format
-                email_rows = f"""
+            phone_valid, phone_fmt = True, mobile
+            if mobile.strip():
+                phone_valid, phone_fmt = validate_us_phone(mobile)
+                if not phone_valid:
+                    errors.append("Please enter a valid 10-digit US phone number.")
+            if errors:
+                for err in errors:
+                    st.error(err)
+            else:
+                try:
+                    # Calculate sponsorship item total as (amount / sponsor_limit) for each selected item
+                    sponsorship_total = 0
+                    if selected_items:
+                        format_strings = ','.join(['%s'] * len(selected_items))
+                        cursor.execute(f"SELECT amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
+                        sponsorship_total = sum([row[0] / row[1] if row[1] else 0 for row in cursor.fetchall()])
+                    contributed_amount = sponsorship_total + (donation if donation else 0)
+                    contributed_amount = round(contributed_amount, 2)
+                    for idx, item in enumerate(selected_items):
+                        d = donation if idx == 0 else 0
+                        cursor.execute("""
+                            INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
+                    if not selected_items and donation > 0:
+                        cursor.execute("""
+                            INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                            VALUES (%s, %s, %s, %s, %s, NULL, %s)
+                        """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
+                    conn.commit()
+                    submitted_data = {
+                        "Name": name_val,
+                        "Email": email,
+                        "Gothram": gothram,
+                        "Mobile": phone_fmt.strip(),
+                        "Apartment": apartment
+                    }
+                    if selected_items:
+                        submitted_data["Sponsorship Items"] = selected_items.copy()
+                    if donation > 0:
+                        submitted_data["Donation"] = f"${donation}"
+                    if (selected_items or donation > 0) and contributed_amount:
+                        submitted_data["Contributed Amount"] = f"${contributed_amount}"
+                    st.session_state['submitted_data'] = submitted_data
+                    st.session_state['show_submission'] = True
+                    notification_emails = get_notification_emails()
+                    recipients = list(notification_emails)
+                    if email.strip():
+                        recipients.append(email.strip())
+                    recipients = list(set(recipients))
+                    email_rows = f"""
   <tr><th>Name</th><td>{name_val}</td></tr>
   <tr><th>Email</th><td>{email}</td></tr>
   <tr><th>Gothram</th><td>{gothram}</td></tr>
   <tr><th>Mobile</th><td>{phone_fmt.strip()}</td></tr>
   <tr><th>Apartment</th><td>{apartment}</td></tr>
 """
-                # Add each sponsored item as a row with amount
-                if selected_items:
-                    format_strings = ','.join(['%s'] * len(selected_items))
-                    cursor.execute(f"SELECT item, amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
-                    item_amounts = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
-                    for item in selected_items:
-                        amt, limit = item_amounts.get(item, (0, 1))
-                        per_item_amt = round(amt / limit, 2) if limit else amt
-                        email_rows += f"  <tr><th>Sponsorship Item</th><td>{item}</td><td><b>${per_item_amt}</b></td></tr>\n"
-                # Add donation as a row if present
-                if donation > 0:
-                    email_rows += f"  <tr><th>Donation</th><td>General Donation</td><td><b>${donation}</b></td></tr>\n"
-                # Add total contributed amount
-                if contributed_amount:
-                    email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
-                # Build PayPal payment section for the email
-                paypal_link = st.secrets.get("paypal_link", "")
-                paypal_icon = "<img src='https://www.paypalobjects.com/webstatic/icon/pp258.png' alt='PayPal' style='height:32px;vertical-align:middle;margin-right:8px;'/>"
-                paypal_html = "<br><b>To pay your sponsorship or donation, please use the PayPal link below:</b><br>"
-                if paypal_link:
-                    paypal_html += f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
-                else:
-                    paypal_html += "<span style='color:#d32f2f;'>PayPal link not available.</span>"
-                # Always add Zelle payment instructions below PayPal
-                paypal_html += "<br><b>For Zelle payment, pay money to any one of these persons: <span style='color:#1565C0;'>Purna Magum / Ganesh Thamma</span></b>"
-                send_email(
-                    "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
-                    f"""
+                    if selected_items:
+                        format_strings = ','.join(['%s'] * len(selected_items))
+                        cursor.execute(f"SELECT item, amount, sponsor_limit FROM sponsorship_items WHERE item IN ({format_strings})", tuple(selected_items))
+                        item_amounts = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+                        for item in selected_items:
+                            amt, limit = item_amounts.get(item, (0, 1))
+                            per_item_amt = round(amt / limit, 2) if limit else amt
+                            email_rows += f"  <tr><th>Sponsorship Item</th><td>{item}</td><td><b>${per_item_amt}</b></td></tr>\n"
+                    if donation > 0:
+                        email_rows += f"  <tr><th>Donation</th><td>General Donation</td><td><b>${donation}</b></td></tr>\n"
+                    if contributed_amount:
+                        email_rows += f"  <tr><th colspan='2'>Total Contributed Amount</th><td><b>${contributed_amount}</b></td></tr>\n"
+                    paypal_link = st.secrets.get("paypal_link", "")
+                    paypal_icon = "<img src='https://www.paypalobjects.com/webstatic/icon/pp258.png' alt='PayPal' style='height:32px;vertical-align:middle;margin-right:8px;'/>"
+                    paypal_html = "<br><b>To pay your sponsorship or donation, please use the PayPal link below:</b><br>"
+                    if paypal_link:
+                        paypal_html += f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
+                    else:
+                        paypal_html += "<span style='color:#d32f2f;'>PayPal link not available.</span>"
+                    paypal_html += "<br><b>For Zelle payment, pay money to any one of these persons: <span style='color:#1565C0;'>Purna Magum / Ganesh Thamma</span></b>"
+                    send_email(
+                        "Ganesh Chaturthi Celebrations Sponsorship Program in Austin Texas",
+                        f"""
 <b>New Sponsorship Submission</b><br><br>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
 {email_rows}
 </table>
 {paypal_html}
 """,
-                    recipients
-                )
-                st.rerun()
-            except Exception as e:
-                conn.rollback()
-                st.error(f"❌ Submission failed: {e}")
+                        recipients
+                    )
+                    st.rerun()
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Submission failed: {e}")
