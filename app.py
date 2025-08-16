@@ -161,11 +161,12 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
                 st.error("❌ Invalid admin credentials")
 else:
     # Show contributions page after successful login
-    menu_items = ["Contributions", "Events", "Prasad Seva"]
-    menu_icons = ["gift", "calendar-event", "award"]
     if st.session_state.admin_logged_in:
-        menu_items += ["📊 Statistics", "🔐 Admin"]
-        menu_icons += ["bar-chart", "lock"]
+        menu_items = ["Contributions", "Events", "Prasad Seva", "📊 Statistics", "🔐 Admin"]
+        menu_icons = ["gift", "calendar-event", "award", "bar-chart", "lock"]
+    else:
+        menu_items = ["Contributions", "Events"]
+        menu_icons = ["gift", "calendar-event"]
     main_menu = option_menu(
         "Menu",
         menu_items,
