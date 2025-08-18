@@ -26,54 +26,59 @@ def create_expenses_table():
 create_expenses_table()
 
 def expenses_tab():
-        conn = get_connection()
-        cursor = conn.cursor()
-        # Calculate wallet and expenses totals
-        cursor.execute("SELECT COALESCE(SUM(amount),0) FROM payment_details")
-        total_payments = cursor.fetchone()[0]
-        cursor.execute("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE status='active'")
-        total_expenses = cursor.fetchone()[0]
-        wallet_amount = total_payments - total_expenses
-        blink_color = 'red' if wallet_amount < 500 else 'green'
-        st.markdown(f"""
-        <div style='font-size:1.3em; font-weight:bold; margin-bottom:10px;'>
-            Available Amount in Wallet: <span style='background: {blink_color}; color: white; padding: 4px 12px; border-radius: 8px; animation: blink 1s linear infinite;'>{wallet_amount:.2f}</span>
-        </div>
-        <style>
-        @keyframes blink {{
-          0% {{ opacity: 1; }}
-          50% {{ opacity: 0.2; }}
-          100% {{ opacity: 1; }}
-        }}
-        span[style*='animation: blink'] {{ animation: blink 1s linear infinite; }}
-        </style>
-        """, unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: center; color: #6D4C41;'>Expenses</h1>", unsafe_allow_html=True)
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Calculate wallet and expenses totals
+    cursor.execute("SELECT COALESCE(SUM(amount),0) FROM payment_details")
+    total_payments = cursor.fetchone()[0]
+    cursor.execute("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE status='active'")
+    total_expenses = cursor.fetchone()[0]
+    wallet_amount = total_payments - total_expenses
+    blink_color = 'red' if wallet_amount < 500 else 'green'
+    st.markdown(f"""
+    <div style='font-size:1.3em; font-weight:bold; margin-bottom:10px;'>
+        Available Amount in Wallet (Total Received Amount - Total Expense Amount): {total_payments:.2f} - {total_expenses:.2f} = <span style='background: {blink_color}; color: white; padding: 4px 12px; border-radius: 8px; animation: blink 1s linear infinite;'>{wallet_amount:.2f}</span>
+    </div>
+    <style>
+    @keyframes blink {{
+      0% {{ opacity: 1; }}
+      50% {{ opacity: 0.2; }}
+      100% {{ opacity: 1; }}
+    }}
+    span[style*='animation: blink'] {{ animation: blink 1s linear infinite; }}
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #6D4C41;'>Expenses</h1>", unsafe_allow_html=True)
 
-        # Fetch sponsorship items for category dropdown
-        cursor.execute("SELECT item FROM sponsorship_items")
-        categories = [row[0] for row in cursor.fetchall()]
-
-        # Display Expenses Table
-        st.markdown("### Expenses List")
-        cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments FROM expenses WHERE status='active' ORDER BY category, sub_category")
-        rows = cursor.fetchall()
-        if rows:
-            df = pd.DataFrame(rows, columns=["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"])
+    # Display Expenses Table
+    st.markdown("### Expenses List")
+    cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments FROM expenses WHERE status='active' ORDER BY category, sub_category")
+    rows = cursor.fetchall()
+    if rows:
+        is_admin = st.session_state.get("admin_logged_in", False)
+        columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"] if is_admin else ["ID", "Category", "Sub Category", "Amount", "Date", "Comments"]
+        df = pd.DataFrame(rows, columns=["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"])
+        if not is_admin:
+            df_display = df.drop(columns=["ID", "Spent By"])
+        else:
             df_display = df.drop(columns=["ID"])
-            df_display.index = range(1, len(df_display) + 1)
-            col1, col2 = st.columns([3,1])
-            with col1:
-                st.markdown(df_display.to_html(escape=False, index=True), unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
+        df_display.index = range(1, len(df_display) + 1)
+        col1, col2 = st.columns([3,1])
+        with col1:
+            st.markdown(df_display.to_html(escape=False, index=True), unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
+        if is_admin:
             # Edit/Delete options
             st.markdown("#### Edit/Delete Expense")
+            categories = []
+            cursor.execute("SELECT item FROM sponsorship_items")
+            categories = [row[0] for row in cursor.fetchall()]
             selected_id = st.selectbox("Select Expense to Edit/Delete", df["ID"].tolist(), format_func=lambda x: f"{df[df['ID']==x]['Category'].values[0]} - {df[df['ID']==x]['Sub Category'].values[0]}")
             entry = df[df["ID"]==selected_id].iloc[0]
             edit_tab, delete_tab = st.tabs(["Edit", "Delete"])
             with edit_tab:
-                new_category = st.selectbox("Category", categories, index=categories.index(entry["Category"]), key=f"edit_category_{selected_id}")
+                new_category = st.selectbox("Category", categories, index=categories.index(entry["Category"]) if entry["Category"] in categories else 0, key=f"edit_category_{selected_id}")
                 new_sub_category = st.text_input("Sub Category", value=entry["Sub Category"])
                 new_amount = st.number_input("Amount", min_value=0.0, value=float(entry["Amount"]), format="%.2f")
                 new_date = st.date_input("Date", value=pd.to_datetime(entry["Date"]).date())
@@ -97,11 +102,14 @@ def expenses_tab():
                         st.rerun()
                     else:
                         st.warning(f"Please type the exact Category '{entry['Category']}' and Sub Category '{entry['Sub Category']}' to confirm deletion.")
-        else:
-            st.info("No expenses recorded yet.")
+    else:
+        st.info("No expenses recorded yet.")
 
-        # Add Expense Form
+    # Add Expense Form (admin only)
+    if st.session_state.get("admin_logged_in", False):
         st.markdown("### ➕ Add Expense")
+        cursor.execute("SELECT item FROM sponsorship_items")
+        categories = [row[0] for row in cursor.fetchall()]
         category = st.selectbox("Category", categories)
         sub_category = st.text_input("Sub Category", placeholder="e.g. Decoration, Snacks")
         amount = st.number_input("Amount", min_value=0.0, format="%.2f")

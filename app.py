@@ -239,8 +239,8 @@ else:
         menu_items = ["Contributions", "Events", "Prasad Seva", "Statistics", "Expenses", "Admin"]
         menu_icons = ["gift", "calendar-event", "award", "bar-chart", "cash-coin", "lock"]
     else:
-        menu_items = ["Contributions", "Events"]
-        menu_icons = ["gift", "calendar-event"]
+        menu_items = ["Contributions", "Events", "Expenses"]
+        menu_icons = ["gift", "calendar-event", "cash-coin"]
     main_menu = option_menu(
         "Menu",
         menu_items,

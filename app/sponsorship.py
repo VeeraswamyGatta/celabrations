@@ -9,6 +9,15 @@ import altair as alt
 # Place all sponsorship and donation logic here
 
 def sponsorship_tab():
+    # Helper to get total approved expense amount
+    def get_total_expense_amount(conn):
+        try:
+            df = pd.read_sql("SELECT amount FROM expenses WHERE status = 'active'", conn)
+            if not df.empty:
+                return df["amount"].astype(float).sum()
+        except Exception:
+            pass
+        return 0.0
     st.session_state['active_tab'] = 'Sponsorship'
     conn = get_connection()
     cursor = conn.cursor()
@@ -154,7 +163,17 @@ Your generous support will help us make this year’s festivities vibrant and me
 <b>Total Donated Amount Submitted:</b> <span style='color:#2E7D32;'>${total_donated}</span><br>
 <b>Total Sponsored Amount Submitted:</b> <span style='color:#2E7D32;'>${total_sponsored}</span><br>
 <b>Total Sponsored + Donation Amount Submitted:</b> <span style='color:#2E7D32;'>${total_combined}</span><br>
-<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${paypal_amount:,.2f} + ${zelle_amount:,.2f} = ${combined_total:,.2f}</span>
+<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${float(paypal_amount):,.2f} + ${float(zelle_amount):,.2f} = ${float(combined_total):,.2f}</span><br>
+<b>Total Amount UnReceived:</b> <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span><br>
+<b>Total Amount Received + UnReceived = </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f} + ${float(total_combined) - float(combined_total):,.2f} = ${float(total_combined):,.2f}</span><br>
+<b>Available Amount in Wallet:</b>
+<span style='font-weight:bold;'>
+    (<span style='color:#1565c0;'>Total Received Amount</span> - <span style='color:#d32f2f;'>Total Expense Amount</span>) =
+    <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> - <span style='color:#d32f2f;'>${float(get_total_expense_amount(conn)):,.2f}</span> = <span style='color:#388e3c; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
+</span>
+<br>
+<span style='font-size:0.98em; color:#1565c0;'>For detailed expenses, please see the <b style='color:#d32f2f; font-weight:bold;'>Expenses</b> tab above.</span><br>
+<span style='font-size:0.98em; color:#1565c0;'>For event details, please see the <b style='color:#FF9800; font-weight:bold;'>Events</b> tab above.</span>
 </div>
 """, unsafe_allow_html=True)
 
