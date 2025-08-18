@@ -174,7 +174,7 @@ Your generous support will help us make this year’s festivities vibrant and me
 <br>
 <span style='font-size:0.98em; color:#1565c0;'>For detailed expenses, please see the <b style='color:#d32f2f; font-weight:bold;'>Expenses</b> tab above.</span><br>
 <span style='font-size:0.98em; color:#1565c0;'>For event details, please see the <b style='color:#FF9800; font-weight:bold;'>Events</b> tab above.</span><br>
-<span style='font-size:0.98em; color:#1565c0;'>For a summary of all sponsorships and donations, including contributors and amounts, please visit the <b style='color:#FF9800; font-weight:bold;'>Statistics</b> tab above.</span>
+<span style='font-size:0.98em; color:#1565c0;'>For a summary of all sponsorships and donations, please visit the <b style='color:#FF9800; font-weight:bold;'>Statistics</b> tab above.</span>
 </div>
 """, unsafe_allow_html=True)
 
