@@ -216,7 +216,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         if st.button('🏠 Home', key='home_button'):
             st.session_state['show_submission'] = False
             st.session_state['submitted_data'] = None
-            st.experimental_rerun()
+            st.rerun()
         return
 
     # Only show submission inputs if allowed
