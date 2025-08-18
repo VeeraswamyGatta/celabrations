@@ -9,44 +9,9 @@ from app.admin import admin_tab
 
 
 st.set_page_config(page_title="Terrazzo Ganesh Celebrations 2025", page_icon="🙏", layout="wide")
-# Add Ganesh image to the top-right corner
-# Show Ganesh image in the top-right corner using st.image and CSS
 from PIL import Image
 ganesh_img = Image.open("ganesh.png")
-st.markdown(
-    """
-    <style>
-    .ganesh-corner-st {
-        position: fixed;
-        top: 40px;
-        right: 24px;
-        z-index: 9999;
-        width: 80px;
-        height: 90px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        background: #fff;
-        padding: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    </style>
-    <div class="ganesh-corner-st" id="ganesh-corner-st"></div>
-    <script>
-    const img = window.parent.document.createElement('img');
-    img.src = '/app/static/ganesh.png';
-    img.alt = 'Ganesh';
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.borderRadius = '12px';
-    document.getElementById('ganesh-corner-st').appendChild(img);
-    </script>
-    """,
-    unsafe_allow_html=True
-)
-# Fallback for environments where JS injection doesn't work (e.g., Streamlit Cloud)
-st.image(ganesh_img, width=70)
+
 
 # ---------- Constants ----------
 
@@ -98,6 +63,41 @@ if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
 if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
+    # Add Ganesh image to the top-right corner (login page)
+    st.markdown(
+        """
+        <style>
+        .ganesh-corner-st {
+            position: fixed;
+            top: 40px;
+            right: 24px;
+            z-index: 9999;
+            width: 80px;
+            height: 90px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: #fff;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        </style>
+        <div class="ganesh-corner-st" id="ganesh-corner-st"></div>
+        <script>
+        const img = window.parent.document.createElement('img');
+        img.src = '/app/static/ganesh.png';
+        img.alt = 'Ganesh';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.borderRadius = '12px';
+        document.getElementById('ganesh-corner-st').appendChild(img);
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+    # Fallback for environments where JS injection doesn't work (e.g., Streamlit Cloud)
+    st.image(ganesh_img, width=70)
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Login</h1>", unsafe_allow_html=True)
     role = st.selectbox("Login as", ["User", "Admin"], index=0)
     if role == "User":
@@ -160,6 +160,41 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
             else:
                 st.error("❌ Invalid admin credentials")
 else:
+    # Add Ganesh image to the top-right corner (after login)
+    st.markdown(
+        """
+        <style>
+        .ganesh-corner-st {
+            position: fixed;
+            top: 40px;
+            right: 24px;
+            z-index: 9999;
+            width: 80px;
+            height: 90px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: #fff;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        </style>
+        <div class="ganesh-corner-st" id="ganesh-corner-st"></div>
+        <script>
+        const img = window.parent.document.createElement('img');
+        img.src = '/app/static/ganesh.png';
+        img.alt = 'Ganesh';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.borderRadius = '12px';
+        document.getElementById('ganesh-corner-st').appendChild(img);
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+    # Fallback for environments where JS injection doesn't work (e.g., Streamlit Cloud)
+    st.image(ganesh_img, width=70)
     # Show contributions page after successful login
     if st.session_state.admin_logged_in:
         menu_items = ["Contributions", "Events", "Prasad Seva", "📊 Statistics", "Expenses", "🔐 Admin"]
