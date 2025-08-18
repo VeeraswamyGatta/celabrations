@@ -123,5 +123,27 @@ def expenses_tab():
                     (category, sub_category, amount, date, spent_by, comments, 'active')
                 )
                 conn.commit()
-                st.success("✅ Expense added!")
+                # Send notification email
+                from .email_utils import send_email
+                # Get notification emails
+                cursor.execute("SELECT email FROM notification_emails")
+                notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                # Get wallet amount after adding expense
+                cursor.execute("SELECT COALESCE(SUM(amount),0) FROM payment_details")
+                total_payments = cursor.fetchone()[0]
+                cursor.execute("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE status='active'")
+                total_expenses = cursor.fetchone()[0]
+                wallet_amount = total_payments - total_expenses
+                # Newly added expense info as table
+                new_expense_df = pd.DataFrame([[category, sub_category, amount, date, spent_by, comments]], columns=["Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"])
+                new_expense_html = new_expense_df.to_html(index=False, border=1, justify='center')
+                # All expenses table
+                cursor.execute("SELECT category, sub_category, amount, date, spent_by, comments FROM expenses WHERE status='active' ORDER BY category, sub_category")
+                all_rows = cursor.fetchall()
+                all_expenses_df = pd.DataFrame(all_rows, columns=["Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"])
+                all_expenses_html = all_expenses_df.to_html(index=False, border=1, justify='center')
+                subject = f"Available Amount in Wallet: {wallet_amount:.2f}"
+                body = f"<b>New Expense Added:</b><br>{new_expense_html}<br><br><b>All Expenses:</b><br>{all_expenses_html}"
+                send_email(subject, body, notification_emails)
+                st.success("✅ Expense added and notification email sent!")
                 st.rerun()
