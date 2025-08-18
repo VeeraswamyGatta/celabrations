@@ -18,11 +18,11 @@ st.markdown(
     <style>
     .ganesh-corner-st {
         position: fixed;
-        top: 18px;
+        top: 40px;
         right: 24px;
         z-index: 9999;
-        width: 70px;
-        height: 70px;
+        width: 80px;
+        height: 90px;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         background: #fff;
