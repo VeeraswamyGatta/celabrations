@@ -162,8 +162,8 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
 else:
     # Show contributions page after successful login
     if st.session_state.admin_logged_in:
-        menu_items = ["Contributions", "Events", "Prasad Seva", "📊 Statistics", "🔐 Admin"]
-        menu_icons = ["gift", "calendar-event", "award", "bar-chart", "lock"]
+        menu_items = ["Contributions", "Events", "Prasad Seva", "📊 Statistics", "Expenses", "🔐 Admin"]
+        menu_icons = ["gift", "calendar-event", "award", "bar-chart", "cash-coin", "lock"]
     else:
         menu_items = ["Contributions", "Events"]
         menu_icons = ["gift", "calendar-event"]
@@ -187,6 +187,9 @@ else:
         prasad_seva_tab()
     elif st.session_state.admin_logged_in and main_menu == "📊 Statistics":
         statistics_tab()
+    elif main_menu == "Expenses":
+        from app.expenses import expenses_tab
+        expenses_tab()
     elif st.session_state.admin_logged_in and main_menu == "🔐 Admin":
         if 'admin_full_name' not in st.session_state:
             st.session_state.admin_full_name = ''
@@ -196,16 +199,11 @@ else:
                 "Sponsorship Items",
                 "Sponsorship Record",
                 "Manage Notification Emails",
-                "Payment Details",
-                "Expenses"
+                "Payment Details"
             ],
-            icons=["list-task", "pencil-square", "envelope-fill", "credit-card", "cash-coin"],
+            icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"
         )
-        if admin_menu == "Expenses":
-            from app.expenses import expenses_tab
-            expenses_tab()
-        else:
-            admin_tab(menu=admin_menu)
+        admin_tab(menu=admin_menu)
