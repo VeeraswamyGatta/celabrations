@@ -209,13 +209,17 @@ def statistics_tab():
         # Set y-axis to have a step of 10 for amount range
         min_amt = chart_df['Amount'].min() if not chart_df['Amount'].empty else 0
         max_amt = chart_df['Amount'].max() if not chart_df['Amount'].empty else 10
+        # Responsive chart width for mobile
+        chart_width = 700
+        # If running on mobile, reduce chart width (pseudo-code, Streamlit does not provide direct device detection)
+        # You may use st.container() or st.columns for better mobile layout if needed
+        # chart_width = 350 if is_mobile else 700
         chart = alt.Chart(chart_df).mark_bar().encode(
             x=alt.X('Name:N', title='Name', sort='-y'),
             y=alt.Y('Amount:Q', title='Amount ($)', scale=alt.Scale(domain=[min_amt, max_amt], nice=True)),
             color=alt.Color('Type:N', title='Type'),
             tooltip=['Name', 'Type', 'Amount']
-        ).properties(width=700)
-        # Set y-axis tick interval to 5
+        ).properties(width=chart_width)
         chart = chart.configure_axis(
             grid=True,
             tickCount=round((max_amt-min_amt)/5) if max_amt > min_amt else 5

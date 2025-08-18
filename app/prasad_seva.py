@@ -36,6 +36,8 @@ def prasad_seva_tab():
     rows = cursor.fetchall()
     if rows:
         df = pd.DataFrame(rows, columns=["ID", "Type", "Names", "Item Name", "How many people are you bringing item for", "Apartemnt Number", "Date", "Pooja Time", "Created By", "Status"])
+        if "Status" in df.columns:
+            df = df.drop(columns=["Status"])
         # Remove Created By column
         df_display = df.drop(columns=["ID", "Created By"])
         # Bold 'How many people are you bringing item for' column
