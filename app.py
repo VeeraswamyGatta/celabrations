@@ -63,6 +63,24 @@ if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
 if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
+    st.markdown("""
+    <style>
+    .stImage > img {
+        margin-top: 24px;
+        max-width: 90px;
+        height: auto;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    @media (max-width: 600px) {
+        .stImage > img {
+            margin-top: 36px !important;
+            max-width: 70px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
     st.image(ganesh_img, width=90)
     st.markdown("""
     <style>
