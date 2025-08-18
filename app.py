@@ -239,8 +239,8 @@ else:
         menu_items = ["Contributions", "Events", "Prasad Seva", "Statistics", "Expenses", "Admin"]
         menu_icons = ["gift", "calendar-event", "award", "bar-chart", "cash-coin", "lock"]
     else:
-        menu_items = ["Contributions", "Events", "Expenses"]
-        menu_icons = ["gift", "calendar-event", "cash-coin"]
+        menu_items = ["Contributions", "Events", "Statistics", "Expenses"]
+        menu_icons = ["gift", "calendar-event", "bar-chart", "cash-coin"]
     main_menu = option_menu(
         "Menu",
         menu_items,
@@ -259,7 +259,9 @@ else:
     elif main_menu == "Prasad Seva":
         from app.prasad_seva import prasad_seva_tab
         prasad_seva_tab()
-    elif st.session_state.admin_logged_in and main_menu == "Statistics":
+    elif main_menu == "Statistics":
+        # Set is_admin flag for statistics
+        st.session_state['is_admin'] = st.session_state.admin_logged_in
         statistics_tab()
     elif main_menu == "Expenses":
         from app.expenses import expenses_tab

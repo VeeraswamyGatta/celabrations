@@ -28,11 +28,10 @@ from email.mime.text import MIMEText
 def statistics_tab():
     # --- Combined PayPal + Zelle Total ---    
     st.session_state['active_tab'] = 'Statistics'
+    is_admin = st.session_state.get('is_admin', False)
     # --- Audit trail: Your Full Name ---
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
-    if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
-        st.warning("Your Full Name (for audit trail) is required. Please log out and log in again.")
-        return
+    # Removed audit trail full name requirement as requested
     # (Removed duplicate display of audit name in statistics page)
     conn = get_connection()
     cursor = conn.cursor()
@@ -67,6 +66,9 @@ def statistics_tab():
     df = pd.DataFrame(records)
     st.markdown("### 📋 Sponsorship Records")
     df_display = df.copy()
+    if not is_admin:
+        # Hide email and mobile columns for users
+        df_display = df_display.drop(columns=[col for col in ['Email', 'Mobile'] if col in df_display.columns])
     if 'Name' in df_display.columns:
         df_display = df_display.sort_values(by=["Name"]).reset_index(drop=True)
     df_display.index = range(1, len(df_display) + 1)
@@ -120,21 +122,22 @@ def statistics_tab():
             except Exception as e:
                 st.error(f"Failed to send email to {recipient}: {e}")
 
-    if st.button("Send Sponsored Records Report (CSV)"):
-        audit_name = st.session_state.get('admin_full_name', '')
-        body = f"""
-<b>Sponsored Records Report (CSV attached)</b><br><br>
-Total records: {len(df)}<br>
-Date: {datetime.date.today()}<br>
-Triggered Report by: <b>{audit_name}</b><br>
-"""
-        send_csv_email(
-            "Ganesh Chaturthi Sponsorship - Sponsored Records CSV Report",
-            body,
-            df,
-            f"sponsored_records_{datetime.date.today()}.csv"
-        )
-        st.success("Sponsored records report sent!")
+    if is_admin:
+        if st.button("Send Sponsored Records Report (CSV)"):
+            audit_name = st.session_state.get('admin_full_name', '')
+            body = f"""
+    <b>Sponsored Records Report (CSV attached)</b><br><br>
+    Total records: {len(df)}<br>
+    Date: {datetime.date.today()}<br>
+    Triggered Report by: <b>{audit_name}</b><br>
+    """
+            send_csv_email(
+                "Ganesh Chaturthi Sponsorship - Sponsored Records CSV Report",
+                body,
+                df,
+                f"sponsored_records_{datetime.date.today()}.csv"
+            )
+            st.success("Sponsored records report sent!")
 
     # Available items report
     cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items ORDER BY id")
@@ -157,54 +160,78 @@ Triggered Report by: <b>{audit_name}</b><br>
     st.dataframe(df_available)
 
     # Move the CSV export button here
-    if st.button("Send Available Items Report (CSV)", key="available_items_csv_btn"):
-        audit_name = st.session_state.get('admin_full_name', '')
-        body = f"""
-<b>Available Sponsorship Items Report (CSV attached)</b><br><br>
-Date: {datetime.date.today()}<br>
-Triggered Report by: <b>{audit_name}</b><br>
-"""
-        send_csv_email(
-            "Ganesh Chaturthi Sponsorship - Available Items CSV Report",
-            body,
-            df_available,
-            f"available_items_{datetime.date.today()}.csv"
-        )
-        st.success("Available items report sent!")
+    if is_admin:
+        if st.button("Send Available Items Report (CSV)", key="available_items_csv_btn"):
+            audit_name = st.session_state.get('admin_full_name', '')
+            body = f"""
+    <b>Available Sponsorship Items Report (CSV attached)</b><br><br>
+    Date: {datetime.date.today()}<br>
+    Triggered Report by: <b>{audit_name}</b><br>
+    """
+            send_csv_email(
+                "Ganesh Chaturthi Sponsorship - Available Items CSV Report",
+                body,
+                df_available,
+                f"available_items_{datetime.date.today()}.csv"
+            )
+            st.success("Available items report sent!")
 
-    # Bar chart for item total and remaining slots
-    st.markdown("### 📊 Sponsorship Item Slot Distribution")
-    if not df_available.empty:
-        bar_data = pd.melt(
-            df_available,
-            id_vars=["Item"],
-            value_vars=["Total Slot", "Remaining Slot Available"],
-            var_name="Slot Type",
-            value_name="Count"
-        )
-        bar_chart = alt.Chart(bar_data).mark_bar().encode(
-            x=alt.X('Item:N', title='Sponsorship Item'),
-            y=alt.Y('Count:Q', title='Slots'),
-            color=alt.Color('Slot Type:N', title='Slot Type'),
-            column=alt.Column('Slot Type:N', title=None, header=alt.Header(labelOrient='bottom')),
-            tooltip=['Item', 'Slot Type', 'Count']
-        ).properties(width=120, height=300)
-        st.altair_chart(bar_chart, use_container_width=True)
 
-    # Bar chart for total donation per person
-    st.markdown("### 💵 Total Donation by Person")
-    donation_df = raw_df.groupby("name", as_index=False)["donation"].sum()
-    donation_df = donation_df[donation_df["donation"] > 0]
-    if not donation_df.empty:
-        donation_chart = alt.Chart(donation_df).mark_bar().encode(
-            x=alt.X("name:N", title="Name", sort="-y"),
-            y=alt.Y("donation:Q", title="Total Donation ($)"),
-            color=alt.Color("name:N", legend=None),
-            tooltip=["name", "donation"]
+    # Bar chart for total contribution per person (sponsorship + donation)
+    st.markdown("### 📊 Total Contribution by Person")
+    # Prepare grouped data for sponsorship and donation
+    contrib_data = {}
+    for _, row in raw_df.iterrows():
+        name = row['name']
+        # Sponsorship amount (apply limit calculation)
+        spon_amt = 0
+        if row['sponsorship']:
+            amt, limit = item_amt_map.get(row['sponsorship'], (0, 1))
+            spon_amt = round(amt / limit, 2) if limit else amt
+        # Donation amount
+        don_amt = row['donation'] if row['donation'] else 0
+        if name not in contrib_data:
+            contrib_data[name] = {'Sponsorship Amount': 0, 'Donation Amount': 0}
+        contrib_data[name]['Sponsorship Amount'] += spon_amt
+        contrib_data[name]['Donation Amount'] += don_amt
+    # Build DataFrame for chart
+    contrib_df = pd.DataFrame([
+        {
+            'Name': name,
+            'Sponsorship Amount': float(v['Sponsorship Amount']),
+            'Donation Amount': float(v['Donation Amount']),
+            'Total Contribution': float(v['Sponsorship Amount']) + float(v['Donation Amount'])
+        }
+        for name, v in contrib_data.items()
+    ])
+    if not contrib_df.empty:
+        chart_df = contrib_df.melt(id_vars=['Name'], value_vars=['Sponsorship Amount', 'Donation Amount'], var_name='Type', value_name='Amount')
+        # Set y-axis to have a step of 10 for amount range
+        min_amt = chart_df['Amount'].min() if not chart_df['Amount'].empty else 0
+        max_amt = chart_df['Amount'].max() if not chart_df['Amount'].empty else 10
+        chart = alt.Chart(chart_df).mark_bar().encode(
+            x=alt.X('Name:N', title='Name', sort='-y'),
+            y=alt.Y('Amount:Q', title='Amount ($)', scale=alt.Scale(domain=[min_amt, max_amt], nice=True)),
+            color=alt.Color('Type:N', title='Type'),
+            tooltip=['Name', 'Type', 'Amount']
         ).properties(width=700)
-        st.altair_chart(donation_chart, use_container_width=True)
+        # Set y-axis tick interval to 5
+        chart = chart.configure_axis(
+            grid=True,
+            tickCount=round((max_amt-min_amt)/5) if max_amt > min_amt else 5
+        )
+        st.altair_chart(chart, use_container_width=True)
+
+        # Calculate unique contributors for sponsors and donations
+        sponsor_names = set(raw_df[raw_df['sponsorship'].notnull()]['name'])
+        donation_names = set(raw_df[(raw_df['donation'] > 0) & raw_df['donation'].notnull()]['name'])
+        total_sponsors = len(sponsor_names)
+        total_donors = len(donation_names)
+        total_contributors = len(sponsor_names.union(donation_names))
+
+        st.markdown(f"<div style='font-size:1em; color:#1565C0; font-weight:bold; margin-top:0.5em;'>Total Contributors (Sponsors + Donations) = {total_sponsors} + {total_donors} = <span style='color:#2E7D32;'>{total_contributors}</span></div>", unsafe_allow_html=True)
     else:
-        st.info("No donations recorded yet.")
+        st.info("No contributions recorded yet.")
 
 
 
