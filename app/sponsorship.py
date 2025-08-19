@@ -78,7 +78,6 @@ def sponsorship_tab():
     st.markdown("""
 <span style='font-size:1.13em; font-family: Times New Roman, Calibri, Verdana, serif;'>
 We warmly welcome you to join this year’s celebration by sponsoring any of the major items listed below. The cost for each item will be shared among the selected sponsors based on available slots. You may also contribute any amount of your choice as a donation.<br>
-This year’s celebration is estimated to cost approximately <span style='color:#d32f2f; font-weight:bold;'>$2,800–$3,000</span>, based on last year’s expenses.<br>
 Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.<br>
 </span>
 """, unsafe_allow_html=True)
