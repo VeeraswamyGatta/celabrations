@@ -134,7 +134,7 @@ def prasad_seva_tab():
                 st.success("✅ Updated!")
                 st.rerun()
         with delete_tab:
-            entered_name = st.text_input(f"Type the name to confirm deletion (e.g. {entry['Names']})", key=f"delete_name_{selected_id}")
+            entered_name = st.text_input(f"Type the name to confirm deletion ({entry['Names']})", key=f"delete_name_{selected_id}")
             confirm_message = f"Type <b>{entry['Names']}</b> above and click Delete to confirm."
             st.markdown(confirm_message, unsafe_allow_html=True)
             if st.button("Delete Prasad Seva", key=f"delete_prasad_{selected_id}"):
