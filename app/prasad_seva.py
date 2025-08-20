@@ -49,11 +49,11 @@ def prasad_seva_tab():
     metrics_df["Pooja Time"] = metrics_df["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
     metrics_df["Total People Served"] = metrics_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
     # Center align columns and render as HTML
-    st.markdown("<h2 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:10px;border-radius:12px;margin-bottom:0.5em;'>🍲 Prasad Seva (Date & Pooja Time) Wise Summary</h2>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:7px;border-radius:10px;margin-bottom:0.5em;font-size:1.1em;'>🍲 Prasad Seva (Date & Pooja Time) Wise Summary</h4>", unsafe_allow_html=True)
     st.markdown(metrics_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
     # Display table next
     # Sponsors Table Title
-    st.markdown("<h3 style='text-align:center;color:#6D4C41;background:#FFECB3;padding:8px;border-radius:10px;margin-bottom:0.5em;'>🙏 Prasad Seva Sponsors List</h3>", unsafe_allow_html=True)
+    st.markdown("<h5 style='text-align:center;color:#6D4C41;background:#FFECB3;padding:6px;border-radius:8px;margin-bottom:0.5em;font-size:1em;'>🙏 Prasad Seva Sponsors List</h5>", unsafe_allow_html=True)
     cursor.execute("SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active' ORDER BY seva_date, pooja_time, id")
     rows = cursor.fetchall()
     if rows and len(rows) > 0:
@@ -141,35 +141,47 @@ def prasad_seva_tab():
 
     # Edit/Delete Prasad Seva (now for all users)
     if rows:
-        st.markdown("#### Edit/Delete Prasad Seva")
-        selected_id = st.selectbox("Select Entry to Edit/Delete", df["ID"].tolist(), format_func=lambda x: f"{df[df['ID']==x]['Names'].values[0]}")
-        entry = df[df["ID"]==selected_id].iloc[0]
-        edit_tab, delete_tab = st.tabs(["Edit", "Delete"])
-        with edit_tab:
-            new_type = st.radio("Type", ["Group", "Individual"], index=0 if entry["Type"]=="Group" else 1)
-            new_names = st.text_area("Names (comma separated)", value=entry["Names"])
-            new_item = st.text_input("Item Name", value=entry["Item Name"])
-            new_num = st.number_input("How many people are you bringing item for?", min_value=1, value=int(entry["How many people are you bringing item for"]))
-            new_apartment = st.text_input("Apartment Number", value=entry["Apartemnt Number"])
-            min_date = datetime.date(2025, 8, 26)
-            max_date = datetime.date(2025, 8, 30)
-            current_date = pd.to_datetime(entry["Date"]).date() if pd.notna(entry["Date"]) else min_date
-            new_date = st.date_input("Date", value=current_date, min_value=min_date, max_value=max_date, key=f"edit_prasad_date_{selected_id}")
-            new_pooja_time = st.radio("Pooja Time", ["Morning Pooja", "Evening Pooja"], index=0 if entry["Pooja Time"]=="Morning Pooja" else 1, key=f"edit_prasad_time_{selected_id}")
-            if st.button("Update Prasad Seva"):
-                cursor.execute("UPDATE prasad_seva SET seva_type=%s, names=%s, item_name=%s, num_people=%s, apartment=%s, seva_date=%s, pooja_time=%s, status=%s WHERE id=%s", (new_type, new_names, new_item, new_num, new_apartment, new_date, new_pooja_time, 'active', selected_id))
-                conn.commit()
-                st.success("✅ Updated!")
-                st.rerun()
-        with delete_tab:
-            entered_name = st.text_input(f"Type the name to confirm deletion ({entry['Names']})", key=f"delete_name_{selected_id}")
-            confirm_message = f"Type <b>{entry['Names']}</b> above and click Delete to confirm."
-            st.markdown(confirm_message, unsafe_allow_html=True)
-            if st.button("Delete Prasad Seva", key=f"delete_prasad_{selected_id}"):
-                if entered_name.strip() == entry['Names']:
-                    cursor.execute("UPDATE prasad_seva SET status='inactive' WHERE id=%s", (selected_id,))
+        st.markdown("<h5 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:8px;border-radius:10px;margin-bottom:0.5em;'>✏️🗑️ Edit/Delete Prasad Seva Entry</h5>", unsafe_allow_html=True)
+        id_list = df["ID"].tolist()
+        selected_id = st.selectbox(
+            "Select Entry to Edit/Delete",
+            id_list,
+            format_func=lambda x: f"{df[df['ID']==x]['Names'].values[0]}",
+            index=None
+        )
+        entry = df[df["ID"]==selected_id].iloc[0] if selected_id is not None else None
+        if entry is not None:
+            edit_tab, delete_tab = st.tabs(["Edit", "Delete"])
+            with edit_tab:
+                # Type is not editable
+                st.markdown(f"<b>Type:</b> " + (f"<span style='background-color:#B2DFDB;color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>👥 Group</span>" if entry['Type']=='Group' else f"<span style='background-color:#FFCCBC;color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>🧑 Individual</span>"), unsafe_allow_html=True)
+                # Names and Apartment Number are not editable
+                st.markdown(f"<b>Names:</b> <span style='font-size:16px;'>&#128100;</span> <b>{entry['Names']}</b>", unsafe_allow_html=True)
+                new_item = st.text_input("Item Name", value=entry["Item Name"])
+                new_num = st.number_input("How many people are you bringing item for?", min_value=1, value=int(entry["How many people are you bringing item for"]))
+                st.markdown(f"<b>Apartment Number:</b> <span style='font-size:16px;'>&#127968;</span> <b>{entry['Apartemnt Number']}</b>", unsafe_allow_html=True)
+                min_date = datetime.date(2025, 8, 26)
+                max_date = datetime.date(2025, 8, 30)
+                current_date = pd.to_datetime(entry["Date"]).date() if pd.notna(entry["Date"]) else min_date
+                new_date = st.date_input("Date", value=current_date, min_value=min_date, max_value=max_date, key=f"edit_prasad_date_{selected_id}")
+                new_pooja_time = st.radio("Pooja Time", ["Morning Pooja", "Evening Pooja"], index=0 if entry["Pooja Time"]=="Morning Pooja" else 1, key=f"edit_prasad_time_{selected_id}")
+                if st.button("Update Prasad Seva"):
+                    cursor.execute(
+                        "UPDATE prasad_seva SET seva_type=%s, names=%s, item_name=%s, num_people=%s, apartment=%s, seva_date=%s, pooja_time=%s, status=%s WHERE id=%s",
+                        (new_type, entry["Names"], new_item, new_num, entry["Apartemnt Number"], new_date, new_pooja_time, 'active', selected_id)
+                    )
                     conn.commit()
-                    st.success("🗑️ Deleted!")
+                    st.success("✅ Updated!")
                     st.rerun()
-                else:
-                    st.warning(f"Please type the exact name '{entry['Names']}' to confirm deletion.")
+            with delete_tab:
+                entered_name = st.text_input(f"Type the name to confirm deletion ({entry['Names']})", key=f"delete_name_{selected_id}")
+                confirm_message = f"Type <b>{entry['Names']}</b> above and click Delete to confirm."
+                st.markdown(confirm_message, unsafe_allow_html=True)
+                if st.button("Delete Prasad Seva", key=f"delete_prasad_{selected_id}"):
+                    if entered_name.strip() == entry['Names']:
+                        cursor.execute("UPDATE prasad_seva SET status='inactive' WHERE id=%s", (selected_id,))
+                        conn.commit()
+                        st.success("🗑️ Deleted!")
+                        st.rerun()
+                    else:
+                        st.warning(f"Please type the exact name '{entry['Names']}' to confirm deletion.")
