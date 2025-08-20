@@ -164,7 +164,7 @@ Your generous support will help us make this year’s festivities vibrant and me
 <b>Total Sponsored + Donation Amount Submitted:</b> <span style='color:#2E7D32;'>${total_combined}</span><br>
 <b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${float(paypal_amount):,.2f} + ${float(zelle_amount):,.2f} = ${float(combined_total):,.2f}</span><br>
 <b>Total Amount UnReceived:</b> <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span><br>
-<b>Total Amount Received + UnReceived = </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f} + ${float(total_combined) - float(combined_total):,.2f} = ${float(total_combined):,.2f}</span><br>
+<b>Total Amount Received + UnReceived = </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> + <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span> = <span style='color:#2E7D32;'>${float(total_combined):,.2f}</span><br>
 <b>Available Amount in Wallet:</b>
 <span style='font-weight:bold;'>
     (<span style='color:#1565c0;'>Total Received Amount</span> - <span style='color:#d32f2f;'>Total Expense Amount</span>) =
