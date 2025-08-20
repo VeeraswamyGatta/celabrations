@@ -28,24 +28,52 @@ def prasad_seva_tab():
     cursor.execute(CREATE_TABLE_SQL)
     conn.commit()
 
-    st.markdown("<h1 style='text-align: center; color: #8D6E63;'>Prasad Seva</h1>", unsafe_allow_html=True)
+    # Removed repeated Prasad Seva heading for cleaner UI
 
-    # Display table first
-    st.markdown("### Prasad Seva List")
+    # Metrics: Date-wise sum of 'How many people are you bringing item for'
+    cursor.execute("SELECT seva_date, pooja_time, SUM(num_people) FROM prasad_seva WHERE status='active' GROUP BY seva_date, pooja_time ORDER BY seva_date, pooja_time")
+    metrics = cursor.fetchall()
+    min_date = datetime.date(2025, 8, 26)
+    max_date = datetime.date(2025, 8, 30)
+    date_range = pd.date_range(min_date, max_date)
+    pooja_times = ["Morning Pooja", "Evening Pooja"]
+    # Build metrics dict {(date, pooja_time): total}
+    metrics_dict = {(pd.to_datetime(row[0]).date(), row[1]): row[2] for row in metrics} if metrics else {}
+    metrics_data = []
+    for d in date_range:
+        for pt in pooja_times:
+            metrics_data.append((d.date(), pt, metrics_dict.get((d.date(), pt), 0)))
+    metrics_df = pd.DataFrame(metrics_data, columns=["Date", "Pooja Time", "Total People Served"])
+    # Format date and number for better visualization
+    metrics_df["Date"] = metrics_df["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
+    metrics_df["Pooja Time"] = metrics_df["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
+    metrics_df["Total People Served"] = metrics_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
+    # Center align columns and render as HTML
+    st.markdown("<h2 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:10px;border-radius:12px;margin-bottom:0.5em;'>🍲 Prasad Seva (Date & Pooja Time) Wise Summary</h2>", unsafe_allow_html=True)
+    st.markdown(metrics_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
+    # Display table next
+    # Sponsors Table Title
+    st.markdown("<h3 style='text-align:center;color:#6D4C41;background:#FFECB3;padding:8px;border-radius:10px;margin-bottom:0.5em;'>🙏 Prasad Seva Sponsors List</h3>", unsafe_allow_html=True)
     cursor.execute("SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active' ORDER BY seva_date, pooja_time, id")
     rows = cursor.fetchall()
-    if rows:
+    if rows and len(rows) > 0:
         df = pd.DataFrame(rows, columns=["ID", "Type", "Names", "Item Name", "How many people are you bringing item for", "Apartemnt Number", "Date", "Pooja Time", "Created By", "Status"])
         if "Status" in df.columns:
             df = df.drop(columns=["Status"])
         # Remove Created By column
         df_display = df.drop(columns=["ID", "Created By"])
-        # Bold 'How many people are you bringing item for' column
-        df_display["How many people are you bringing item for"] = df_display["How many people are you bringing item for"].apply(lambda x: f"<b>{x}</b>")
+        # Format date, number, pooja time, and type columns for visualization
+        df_display["Date"] = df_display["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
+        df_display["Pooja Time"] = df_display["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
+        df_display["Type"] = df_display["Type"].apply(lambda t: f"<span style='background-color:{'#B2DFDB' if t=='Group' else '#FFCCBC'};color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>{'👥 Group' if t=='Group' else '🧑 Individual'}</span>")
+        df_display["Apartemnt Number"] = df_display["Apartemnt Number"].apply(lambda apt: f"<span style='font-size:16px;'>&#127968;</span> <b>{apt}</b>" if apt else "")
+        df_display["Names"] = df_display["Names"].apply(lambda n: f"<span style='font-size:16px;'>&#128100;</span> <b>{n}</b>" if n else "")
+        df_display["Item Name"] = df_display["Item Name"].apply(lambda item: f"<span style='font-size:16px;'>&#127858;</span> <b>{item}</b>" if item else "")
+        df_display["How many people are you bringing item for"] = df_display["How many people are you bringing item for"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
         # Sort by Date and Pooja Time
         df_display = df_display.sort_values(by=["Date", "Pooja Time"])
         df_display.index = range(1, len(df_display) + 1)
-        st.markdown(df_display.to_html(escape=False, index=True), unsafe_allow_html=True)
+        st.markdown(df_display.to_html(escape=False, index=True, justify='center'), unsafe_allow_html=True)
         # Show Send Email button only for admin, directly below table
         if st.session_state.get('admin_logged_in', False):
             if st.button("Send Prasad Seva Details to Email"):
@@ -53,7 +81,7 @@ def prasad_seva_tab():
                 notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
                 html_table = df.drop(columns=["ID", "Created By"]).to_html(index=False, border=1, justify='center')
                 send_email(
-                    "Prasad Seva List",
+                    "Prasad Seva Sponsors List",
                     f"<b>Current Prasad Seva List</b><br><br>{html_table}",
                     notification_emails
                 )
@@ -74,7 +102,7 @@ def prasad_seva_tab():
         item_names = [i.strip() for i in items_str.split(',') if i.strip()]
         apartment = st.text_input("Apartment Number", key="prasad_group_apartment", placeholder="e.g. 323")
     else:
-        name = st.text_input("Name", key="prasad_individual_name", placeholder="e.g. Hanuman")
+        name = st.text_input("Name", key="prasad_individual_name", placeholder="e.g. Full Name")
         names = [name.strip()] if name.strip() else []
         item_name = st.text_input("Item Name", placeholder="e.g. Modak")
         item_names = [item_name.strip()] if item_name.strip() else []
