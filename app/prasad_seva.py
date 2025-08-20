@@ -144,7 +144,7 @@ def prasad_seva_tab():
         st.markdown("<h5 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:8px;border-radius:10px;margin-bottom:0.5em;'>✏️🗑️ Edit/Delete Prasad Seva Entry</h5>", unsafe_allow_html=True)
         id_list = df["ID"].tolist()
         selected_id = st.selectbox(
-            "Select Entry to Edit/Delete",
+            "Choose a Name to Edit/Delete",
             id_list,
             format_func=lambda x: f"{df[df['ID']==x]['Names'].values[0]}",
             index=None
