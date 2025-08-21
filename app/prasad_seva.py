@@ -52,70 +52,87 @@ def prasad_seva_tab():
     metrics_df["Pooja Time"] = metrics_df["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
     metrics_df["Total People Served"] = metrics_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
     # Center align columns and render as HTML
-    st.markdown("<h4 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:7px;border-radius:10px;margin-bottom:0.5em;font-size:1.1em;'>🍲 Prasad Seva (Date & Pooja Time) Wise Summary</h4>", unsafe_allow_html=True)
-    st.markdown(metrics_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
-    # Display table next
-    # Sponsors Table Title
-    st.markdown("<h5 style='text-align:center;color:#6D4C41;background:#FFECB3;padding:6px;border-radius:8px;margin-bottom:0.5em;font-size:1em;'>🙏 Prasad Seva Sponsors List</h5>", unsafe_allow_html=True)
-    # --- Filters ---
-    st.markdown("<h5 style='margin-bottom:0.2em;'>🔎 Filter Prasad Seva Entries</h5>", unsafe_allow_html=True)
-    filter_col1, filter_col2 = st.columns(2)
-    with filter_col1:
-        filter_date = st.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date")
-    with filter_col2:
-        filter_name = st.text_input("Filter by Name", value="", key="prasad_filter_name")
+    tabs = st.tabs(["Prasad Seva Summary", "Prasad Seva Sponsors List"])
+    with tabs[0]:
+        # Calculate total sponsored count for all days
+        cursor.execute("SELECT SUM(num_people) FROM prasad_seva WHERE status='active'")
+        total_sponsored = cursor.fetchone()[0] or 0
+    with tabs[0]:
+        st.markdown(f"<h4 style='text-align:center;color:#388E3C;background:#C8E6C9;padding:7px;border-radius:10px;margin-bottom:0.5em;font-size:1.1em;'>🎉 Total People Served Count (All Days): <span style='color:#1B5E20;'>{total_sponsored}</span></h4>", unsafe_allow_html=True)
+        st.markdown(metrics_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
+        # Download button for summary table
+        # Prepare raw summary data for download (no HTML tags)
+        raw_metrics_df = pd.DataFrame(metrics_data, columns=["Date", "Pooja Time", "Total People Served"])
+        csv_summary = raw_metrics_df.to_csv(index=False)
+        st.download_button(label="📥", data=csv_summary, file_name="prasad_seva_summary.csv", mime="text/csv")
 
-    query = "SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active'"
-    filters = []
-    params = []
-    if filter_date:
-        filters.append("seva_date = %s")
-        params.append(filter_date)
-    if filter_name:
-        filters.append("names ILIKE %s")
-        params.append(f"%{filter_name}%")
-    if filters:
-        query += " AND " + " AND ".join(filters)
-    query += " ORDER BY seva_date, pooja_time, id"
-    cursor.execute(query, tuple(params))
-    rows = cursor.fetchall()
-    if rows and len(rows) > 0:
-        df = pd.DataFrame(rows, columns=["ID", "Type", "Names", "Item Name", "How many people are you bringing item for", "Apartemnt Number", "Date", "Pooja Time", "Created By", "Status"])
-        if "Status" in df.columns:
-            df = df.drop(columns=["Status"])
-        # Remove Created By column
-        df_display = df.drop(columns=["ID", "Created By"])
-        # Format date, number, pooja time, and type columns for visualization
-        df_display["Date"] = df_display["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
-        # Hide Morning Pooja for 26th Aug in table
-        def pooja_time_display(row):
-            if row["Date"].startswith("<span") and "26-Aug-2025" in row["Date"] and row["Pooja Time"].find("Morning") != -1:
-                return ""
-            return f"<span style='font-size:18px;'>{'🌅' if row['Pooja Time']=='Morning Pooja' else '🌇'}</span> <b>{row['Pooja Time'].replace('Pooja','')}</b>"
-        df_display["Pooja Time"] = df_display.apply(pooja_time_display, axis=1)
-        df_display["Type"] = df_display["Type"].apply(lambda t: f"<span style='background-color:{'#B2DFDB' if t=='Group' else '#FFCCBC'};color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>{'👥 Group' if t=='Group' else '🧑 Individual'}</span>")
-        df_display["Apartemnt Number"] = df_display["Apartemnt Number"].apply(lambda apt: f"<span style='font-size:16px;'>&#127968;</span> <b>{apt}</b>" if apt else "")
-        df_display["Names"] = df_display["Names"].apply(lambda n: f"<span style='font-size:16px;'>&#128100;</span> <b>{n}</b>" if n else "")
-        df_display["Item Name"] = df_display["Item Name"].apply(lambda item: f"<span style='font-size:16px;'>&#127858;</span> <b>{item}</b>" if item else "")
-        df_display["How many people are you bringing item for"] = df_display["How many people are you bringing item for"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
-        # Sort by Date and Pooja Time
-        df_display = df_display.sort_values(by=["Date", "Pooja Time"])
-        df_display.index = range(1, len(df_display) + 1)
-        st.markdown(df_display.to_html(escape=False, index=True, justify='center'), unsafe_allow_html=True)
-        # Show Send Email button only for admin, directly below table
-        if st.session_state.get('admin_logged_in', False):
-            if st.button("Send Prasad Seva Details to Email"):
-                cursor.execute("SELECT email FROM notification_emails")
-                notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
-                html_table = df.drop(columns=["ID", "Created By"]).to_html(index=False, border=1, justify='center')
-                send_email(
-                    "Prasad Seva Sponsors List",
-                    f"<b>Current Prasad Seva List</b><br><br>{html_table}",
-                    notification_emails
-                )
-                st.success("✅ Email sent!")
-    else:
-        st.info("No Prasad Seva entries yet.")
+    with tabs[1]:
+        # --- Filters ---
+        st.markdown("<h5 style='margin-bottom:0.2em;'>🔎 Filter Prasad Seva Entries</h5>", unsafe_allow_html=True)
+        filter_col1, filter_col2 = st.columns(2)
+        with filter_col1:
+            filter_date = st.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date")
+        with filter_col2:
+            filter_name = st.text_input("Filter by Name", value="", key="prasad_filter_name")
+
+        query = "SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active'"
+        filters = []
+        params = []
+        if filter_date:
+            filters.append("seva_date = %s")
+            params.append(filter_date)
+        if filter_name:
+            filters.append("names ILIKE %s")
+            params.append(f"%{filter_name}%")
+        if filters:
+            query += " AND " + " AND ".join(filters)
+        query += " ORDER BY seva_date, pooja_time, id"
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        if rows and len(rows) > 0:
+            df = pd.DataFrame(rows, columns=["ID", "Type", "Names", "Item Name", "How many people are you bringing item for", "Apartemnt Number", "Date", "Pooja Time", "Created By", "Status"])
+            if "Status" in df.columns:
+                df = df.drop(columns=["Status"])
+            # Remove Created By column
+            df_display = df.drop(columns=["ID", "Created By"])
+            # Format date, number, pooja time, and type columns for visualization
+            df_display["Date"] = df_display["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
+            # Hide Morning Pooja for 26th Aug in table
+            def pooja_time_display(row):
+                if row["Date"].startswith("<span") and "26-Aug-2025" in row["Date"] and row["Pooja Time"].find("Morning") != -1:
+                    return ""
+                return f"<span style='font-size:18px;'>{'🌅' if row['Pooja Time']=='Morning Pooja' else '🌇'}</span> <b>{row['Pooja Time'].replace('Pooja','')}</b>"
+            df_display["Pooja Time"] = df_display.apply(pooja_time_display, axis=1)
+            df_display["Type"] = df_display["Type"].apply(lambda t: f"<span style='background-color:{'#B2DFDB' if t=='Group' else '#FFCCBC'};color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>{'👥 Group' if t=='Group' else '🧑 Individual'}</span>")
+            df_display["Apartemnt Number"] = df_display["Apartemnt Number"].apply(lambda apt: f"<span style='font-size:16px;'>&#127968;</span> <b>{apt}</b>" if apt else "")
+            df_display["Names"] = df_display["Names"].apply(lambda n: f"<span style='font-size:16px;'>&#128100;</span> <b>{n}</b>" if n else "")
+            df_display["Item Name"] = df_display["Item Name"].apply(lambda item: f"<span style='font-size:16px;'>&#127858;</span> <b>{item}</b>" if item else "")
+            df_display["How many people are you bringing item for"] = df_display["How many people are you bringing item for"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
+            # Sort by Date and Pooja Time
+            df_display = df_display.sort_values(by=["Date", "Pooja Time"])
+            df_display.index = range(1, len(df_display) + 1)
+            st.markdown(df_display.to_html(escape=False, index=True, justify='center'), unsafe_allow_html=True)
+            # Download button for sponsors list table
+            # Prepare raw sponsors list data for download (no HTML tags)
+            raw_sponsors_df = df.drop(columns=["ID", "Created By"])
+            csv_sponsors = raw_sponsors_df.to_csv(index=False)
+            st.download_button(label="📥", data=csv_sponsors, file_name="prasad_seva_sponsors_list.csv", mime="text/csv")
+            # Show Send Email button only for admin, directly below table
+            if st.session_state.get('admin_logged_in', False):
+                if st.button("Send Prasad Seva Details to Email"):
+                    cursor.execute("SELECT email FROM notification_emails")
+                    notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                    html_table = df.drop(columns=["ID", "Created By"]).to_html(index=False, border=1, justify='center')
+                    send_email(
+                        "Prasad Seva Sponsors List",
+                        f"<b>Current Prasad Seva List</b><br><br>{html_table}",
+                        notification_emails
+                    )
+                    st.success("✅ Email sent!")
+        else:
+            st.info("No Prasad Seva entries yet.")
+    # ...existing code...
 
     st.markdown("---")
     # Form for adding Prasad Seva

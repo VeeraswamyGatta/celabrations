@@ -127,8 +127,8 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
             pwd = st.text_input("🔒 Password", type="password", key="user_login_password")
             login = st.form_submit_button("Login", help="Login as User", use_container_width=True)
         if login:
-            user = user.strip()
-            pwd = pwd.strip()
+            user = user.strip().lower()
+            pwd = pwd.strip().lower()
             errors = []
             if not user:
                 errors.append("Username is required.")
@@ -175,8 +175,8 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
             full_name = st.text_input("📝 Your Full Name (for audit trail) *", key="admin_login_full_name", placeholder="Enter your full name")
             login = st.form_submit_button("Login", help="Login as Admin", use_container_width=True)
         if login:
-            user = user.strip()
-            pwd = pwd.strip()
+            user = user.strip().lower()
+            pwd = pwd.strip().lower()
             full_name = full_name.strip()
             errors = []
             if not user:
