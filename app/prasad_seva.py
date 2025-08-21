@@ -42,6 +42,9 @@ def prasad_seva_tab():
     metrics_data = []
     for d in date_range:
         for pt in pooja_times:
+            # Skip Morning Pooja for 26th Aug
+            if d.date() == datetime.date(2025, 8, 26) and pt == "Morning Pooja":
+                continue
             metrics_data.append((d.date(), pt, metrics_dict.get((d.date(), pt), 0)))
     metrics_df = pd.DataFrame(metrics_data, columns=["Date", "Pooja Time", "Total People Served"])
     # Format date and number for better visualization
@@ -64,7 +67,12 @@ def prasad_seva_tab():
         df_display = df.drop(columns=["ID", "Created By"])
         # Format date, number, pooja time, and type columns for visualization
         df_display["Date"] = df_display["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
-        df_display["Pooja Time"] = df_display["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
+        # Hide Morning Pooja for 26th Aug in table
+        def pooja_time_display(row):
+            if row["Date"].startswith("<span") and "26-Aug-2025" in row["Date"] and row["Pooja Time"].find("Morning") != -1:
+                return ""
+            return f"<span style='font-size:18px;'>{'🌅' if row['Pooja Time']=='Morning Pooja' else '🌇'}</span> <b>{row['Pooja Time'].replace('Pooja','')}</b>"
+        df_display["Pooja Time"] = df_display.apply(pooja_time_display, axis=1)
         df_display["Type"] = df_display["Type"].apply(lambda t: f"<span style='background-color:{'#B2DFDB' if t=='Group' else '#FFCCBC'};color:#4E342E;padding:4px 10px;border-radius:12px;font-weight:bold;'>{'👥 Group' if t=='Group' else '🧑 Individual'}</span>")
         df_display["Apartemnt Number"] = df_display["Apartemnt Number"].apply(lambda apt: f"<span style='font-size:16px;'>&#127968;</span> <b>{apt}</b>" if apt else "")
         df_display["Names"] = df_display["Names"].apply(lambda n: f"<span style='font-size:16px;'>&#128100;</span> <b>{n}</b>" if n else "")
@@ -113,7 +121,11 @@ def prasad_seva_tab():
     min_date = datetime.date(2025, 8, 26)
     max_date = datetime.date(2025, 8, 30)
     seva_date = st.date_input("Date", value=min_date, min_value=min_date, max_value=max_date)
-    pooja_time = st.radio("Pooja Time", ["Morning Pooja", "Evening Pooja"], horizontal=True)
+    # Only enable Morning Pooja if date is not 26th Aug
+    pooja_options = ["Morning Pooja", "Evening Pooja"]
+    if seva_date == datetime.date(2025, 8, 26):
+        pooja_options = ["Evening Pooja"]
+    pooja_time = st.radio("Pooja Time", pooja_options, horizontal=True)
 
     # Add Prasad Seva
     if st.button("✅ Add Prasad Seva"):
@@ -142,14 +154,15 @@ def prasad_seva_tab():
     # Edit/Delete Prasad Seva (now for all users)
     if rows:
         st.markdown("<h5 style='text-align:center;color:#4E342E;background:#FFF8E1;padding:8px;border-radius:10px;margin-bottom:0.5em;'>✏️🗑️ Edit/Delete Prasad Seva Entry</h5>", unsafe_allow_html=True)
-        id_list = df["ID"].tolist()
-        selected_id = st.selectbox(
-            "Choose a Name to Edit/Delete",
-            id_list,
-            format_func=lambda x: f"{df[df['ID']==x]['Names'].values[0]}",
-            index=None
-        )
-        entry = df[df["ID"]==selected_id].iloc[0] if selected_id is not None else None
+        options = ["Select an option"] + [
+            f"{df[df['ID']==x]['Names'].values[0]} | {pd.to_datetime(df[df['ID']==x]['Date'].values[0]).strftime('%d-%b-%Y')} | {df[df['ID']==x]['Pooja Time'].values[0]}"
+            for x in df["ID"].tolist()
+        ]
+        selected_idx = st.selectbox("Choose an entry to Edit/Delete", range(len(options)), format_func=lambda i: options[i])
+        entry = None
+        if selected_idx != 0:
+            selected_id = df["ID"].tolist()[selected_idx-1]
+            entry = df[df["ID"]==selected_id].iloc[0]
         if entry is not None:
             edit_tab, delete_tab = st.tabs(["Edit", "Delete"])
             with edit_tab:
@@ -164,11 +177,15 @@ def prasad_seva_tab():
                 max_date = datetime.date(2025, 8, 30)
                 current_date = pd.to_datetime(entry["Date"]).date() if pd.notna(entry["Date"]) else min_date
                 new_date = st.date_input("Date", value=current_date, min_value=min_date, max_value=max_date, key=f"edit_prasad_date_{selected_id}")
-                new_pooja_time = st.radio("Pooja Time", ["Morning Pooja", "Evening Pooja"], index=0 if entry["Pooja Time"]=="Morning Pooja" else 1, key=f"edit_prasad_time_{selected_id}")
+                pooja_options = ["Morning Pooja", "Evening Pooja"]
+                if new_date == datetime.date(2025, 8, 26):
+                    pooja_options = ["Evening Pooja"]
+                pooja_index = 0 if entry["Pooja Time"]=="Morning Pooja" and "Morning Pooja" in pooja_options else 0
+                new_pooja_time = st.radio("Pooja Time", pooja_options, index=pooja_index, key=f"edit_prasad_time_{selected_id}")
                 if st.button("Update Prasad Seva"):
                     cursor.execute(
                         "UPDATE prasad_seva SET seva_type=%s, names=%s, item_name=%s, num_people=%s, apartment=%s, seva_date=%s, pooja_time=%s, status=%s WHERE id=%s",
-                        (new_type, entry["Names"], new_item, new_num, entry["Apartemnt Number"], new_date, new_pooja_time, 'active', selected_id)
+                        (entry["Type"], entry["Names"], new_item, new_num, entry["Apartemnt Number"], new_date, new_pooja_time, 'active', selected_id)
                     )
                     conn.commit()
                     st.success("✅ Updated!")
