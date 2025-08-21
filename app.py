@@ -127,10 +127,12 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
             pwd = st.text_input("🔒 Password", type="password", key="user_login_password")
             login = st.form_submit_button("Login", help="Login as User", use_container_width=True)
         if login:
+            user = user.strip()
+            pwd = pwd.strip()
             errors = []
-            if not user.strip():
+            if not user:
                 errors.append("Username is required.")
-            if not pwd.strip():
+            if not pwd:
                 errors.append("Password is required.")
             apartment = None
             base_pwd = USER_PASSWORD
@@ -173,16 +175,19 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
             full_name = st.text_input("📝 Your Full Name (for audit trail) *", key="admin_login_full_name", placeholder="Enter your full name")
             login = st.form_submit_button("Login", help="Login as Admin", use_container_width=True)
         if login:
+            user = user.strip()
+            pwd = pwd.strip()
+            full_name = full_name.strip()
             errors = []
-            if not user.strip():
+            if not user:
                 errors.append("Username is required.")
-            if not pwd.strip():
+            if not pwd:
                 errors.append("Password is required.")
-            if not full_name.strip():
+            if not full_name:
                 errors.append("Your Full Name is required for audit trail.")
             if user == ADMIN_USERNAME and pwd == get_admin_password() and not errors:
                 st.session_state.admin_logged_in = True
-                st.session_state.admin_full_name = full_name.strip()
+                st.session_state.admin_full_name = full_name
                 st.success("✅ Admin access granted!")
                 st.rerun()
             else:

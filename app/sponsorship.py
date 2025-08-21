@@ -23,30 +23,15 @@ def sponsorship_tab():
     cursor = conn.cursor()
 
     # --- Combined PayPal + Zelle Total ---
-    import requests
-    from bs4 import BeautifulSoup
-    paypal_link = st.secrets.get("paypal_link", "")
+    # Get PayPal and Zelle totals from payment_details table
     paypal_amount = 0.0
-    if paypal_link:
-        try:
-            resp = requests.get(paypal_link, timeout=10)
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, "html.parser")
-                amt_tag = soup.find(class_="poolProgressBar-amount-raised")
-                if amt_tag and amt_tag.text.strip():
-                    import re
-                    match = re.search(r'\$([0-9,.]+)', amt_tag.text.strip())
-                    if match:
-                        paypal_amount = float(match.group(1).replace(",", ""))
-                else:
-                    import re
-                    match = re.search(r'\$([0-9,.]+)', resp.text)
-                    if match:
-                        paypal_amount = float(match.group(1).replace(",", ""))
-        except Exception:
-            paypal_amount = 0.0
-    # Sum Zelle payments from payment_details table
     zelle_amount = 0.0
+    try:
+        paypal_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'PayPal'", conn)
+        if not paypal_df.empty:
+            paypal_amount = paypal_df["amount"].astype(float).sum()
+    except Exception:
+        paypal_amount = 0.0
     try:
         zelle_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'Zelle'", conn)
         if not zelle_df.empty:
