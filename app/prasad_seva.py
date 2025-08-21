@@ -57,7 +57,27 @@ def prasad_seva_tab():
     # Display table next
     # Sponsors Table Title
     st.markdown("<h5 style='text-align:center;color:#6D4C41;background:#FFECB3;padding:6px;border-radius:8px;margin-bottom:0.5em;font-size:1em;'>🙏 Prasad Seva Sponsors List</h5>", unsafe_allow_html=True)
-    cursor.execute("SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active' ORDER BY seva_date, pooja_time, id")
+    # --- Filters ---
+    st.markdown("<h5 style='margin-bottom:0.2em;'>🔎 Filter Prasad Seva Entries</h5>", unsafe_allow_html=True)
+    filter_col1, filter_col2 = st.columns(2)
+    with filter_col1:
+        filter_date = st.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date")
+    with filter_col2:
+        filter_name = st.text_input("Filter by Name", value="", key="prasad_filter_name")
+
+    query = "SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active'"
+    filters = []
+    params = []
+    if filter_date:
+        filters.append("seva_date = %s")
+        params.append(filter_date)
+    if filter_name:
+        filters.append("names ILIKE %s")
+        params.append(f"%{filter_name}%")
+    if filters:
+        query += " AND " + " AND ".join(filters)
+    query += " ORDER BY seva_date, pooja_time, id"
+    cursor.execute(query, tuple(params))
     rows = cursor.fetchall()
     if rows and len(rows) > 0:
         df = pd.DataFrame(rows, columns=["ID", "Type", "Names", "Item Name", "How many people are you bringing item for", "Apartemnt Number", "Date", "Pooja Time", "Created By", "Status"])
