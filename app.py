@@ -277,12 +277,12 @@ else:
         admin_menu = option_menu(
             "Admin Sections",
             [
-                "Sponsorship Items",
+                "Payment Details",
                 "Sponsorship Record",
-                "Manage Notification Emails",
-                "Payment Details"
+                "Sponsorship Items",
+                "Manage Notification Emails"
             ],
-            icons=["list-task", "pencil-square", "envelope-fill", "credit-card"],
+            icons=["credit-card", "pencil-square", "list-task", "envelope-fill"],
             menu_icon="gear",
             default_index=0,
             orientation="vertical"

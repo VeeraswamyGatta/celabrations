@@ -25,7 +25,8 @@ def admin_tab(menu="Sponsorship Items"):
     st.session_state['active_tab'] = 'Admin'
     conn = get_connection()
     cursor = conn.cursor()
-    if menu == "Payment Details":
+    # Always show Payment Details by default and display its tabs first
+    if menu == "Payment Details" or menu is None:
         st.markdown("<h2 style='color: #6A1B9A;'>💳 Payment Details</h2>", unsafe_allow_html=True)
         # Fetch sponsor names and their total sponsored+donated amount
         def get_sponsor_df():
@@ -45,8 +46,8 @@ def admin_tab(menu="Sponsorship Items"):
             return df
         sponsor_df = get_sponsor_df()
         sponsor_names = sorted(sponsor_df["name"].tolist())
-        # Tabs for Received and Not Received
-        tab1, tab2 = st.tabs(["Received", "Not Received"])
+        # Tabs for Received, Not Received, and Mismatch Records
+        tab1, tab2, tab3 = st.tabs(["Received", "Not Received", "Mismatch Records"])
 
         with tab1:
             # Received: Payment details table
@@ -61,6 +62,11 @@ def admin_tab(menu="Sponsorship Items"):
                 st.dataframe(display_df, use_container_width=True)
                 total_amount = display_df["amount"].sum()
                 st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
+                # Show total PayPal and Zelle amounts
+                paypal_total = display_df[display_df["payment_type"] == "PayPal"]["amount"].sum()
+                zelle_total = display_df[display_df["payment_type"] == "Zelle"]["amount"].sum()
+                st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
                 # Send payment details to notification_emails
                 if st.button("Send Payment Details Email"):
                     # Fetch notification emails
@@ -100,6 +106,26 @@ def admin_tab(menu="Sponsorship Items"):
                 not_received_df = not_received_df.drop(columns=["id"])
             st.dataframe(not_received_df, use_container_width=True)
             st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Not Received:</b> <span style='color:#6A1B9A;'>${not_received_df['Amount'].sum():,.2f}</span></div>", unsafe_allow_html=True)
+
+        with tab3:
+            # Mismatch Records: Names in payment_details where amount does not match sponsorship total_amount
+            df_pay = pd.read_sql("SELECT name, amount FROM payment_details", conn)
+            mismatch_rows = []
+            for _, row in df_pay.iterrows():
+                name = row["name"]
+                sent_amount = float(row["amount"])  # from payment_details
+                sponsor_row = sponsor_df[sponsor_df["name"] == name]
+                if not sponsor_row.empty:
+                    submitted_amount = float(sponsor_row["total_amount"].values[0])  # from sponsor_df
+                    if abs(sent_amount - submitted_amount) > 0.01:
+                        mismatch_rows.append({"Name": name, "Submitted Amount": submitted_amount, "Sent Amount": sent_amount})
+            if mismatch_rows:
+                mismatch_df = pd.DataFrame(mismatch_rows)
+                mismatch_df = mismatch_df.sort_values(by=["Name"]).reset_index(drop=True)
+                mismatch_df.index = mismatch_df.index + 1
+                st.dataframe(mismatch_df, use_container_width=True)
+            else:
+                st.info("No mismatch records found.")
 
         # Add Payment Detail section next
         st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Payment Detail</h3>", unsafe_allow_html=True)
@@ -312,7 +338,11 @@ def admin_tab(menu="Sponsorship Items"):
             st.dataframe(display_df_display, use_container_width=True)
             # Sort sponsor names for selection
             sponsor_names = sorted(df_sponsors["name"].tolist())
-            selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_names)
+            sponsor_name_options = ["-- Select a Name --"] + sponsor_names
+            selected_name = st.selectbox("Select Sponsorship Record (by Name)", sponsor_name_options)
+            if selected_name == "-- Select a Name --":
+                st.info("Please select a name to view or edit the sponsorship record.")
+                return
             # Sort df_sponsors by name for consistent lookup
             df_sponsors_sorted = df_sponsors.sort_values(by=["name"])
             sponsor_row = df_sponsors_sorted[df_sponsors_sorted.name == selected_name].iloc[0]
