@@ -145,11 +145,10 @@ Your generous support will help us make this year’s festivities vibrant and me
 <div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
 <b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
 <b>Total Submitted Sponsored + Donation Amount:</b> <span style='color:#2E7D32;'>${total_sponsored:,.2f} + ${total_donated:,.2f} = ${total_combined:,.2f}</span><br>
-<b>Total Amount Received + Pending = </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> + <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span> = <span style='color:#2E7D32;'>${float(total_combined):,.2f}</span><br>
-<b>Total Amount Received in PayPal + Zelle Account:</b> <span style='color:#2E7D32;'>${float(paypal_amount):,.2f} + ${float(zelle_amount):,.2f} = ${float(combined_total):,.2f}</span><br>
+<b>Total Amount Received + Pending: </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> + <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span> = <span style='color:#2E7D32;'>${float(total_combined):,.2f}</span><br>
 <b>Available Amount in Wallet:</b>
 <span style='font-weight:bold;'>
-    (<span style='color:#1565c0;'>Total Received Amount</span> - <span style='color:#d32f2f;'>Total Expense Amount</span>) =
+    (<span style='color:#1565c0;'>Total Received Amount</span> - <span style='color:#d32f2f;'>Total Expense Amount</span>) :
     <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> - <span style='color:#d32f2f;'>${float(get_total_expense_amount(conn)):,.2f}</span> = <span style='color:#388e3c; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
 </span>
 <br>

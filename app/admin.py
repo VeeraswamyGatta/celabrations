@@ -53,20 +53,35 @@ def admin_tab(menu="Sponsorship Items"):
             # Received: Payment details table
             df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
             if not df_pay.empty:
+                # Add filters for payment_type and comments
+                payment_types = ["All"] + sorted(df_pay["payment_type"].dropna().unique().tolist())
+                selected_type = st.selectbox("Filter by Payment Type", payment_types, index=0)
+                comment_filter = st.text_input("Filter by Comments (contains)", value="")
+
+                filtered_df = df_pay.copy()
+                if selected_type != "All":
+                    filtered_df = filtered_df[filtered_df["payment_type"] == selected_type]
+                if comment_filter:
+                    filtered_df = filtered_df[filtered_df["comments"].str.contains(comment_filter, case=False, na=False)]
+
                 # Hide 'id' column if present, and reset index for clean display
-                display_df = df_pay.copy()
+                display_df = filtered_df.copy()
                 if 'id' in display_df.columns:
                     display_df = display_df.drop(columns=["id"])
                 display_df = display_df.sort_values(by=["name"]).reset_index(drop=True)  # Sort by Name
                 display_df.index = display_df.index + 1  # Start index from 1
                 st.dataframe(display_df, use_container_width=True)
                 total_amount = display_df["amount"].sum()
-                st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
-                # Show total PayPal and Zelle amounts
                 paypal_total = display_df[display_df["payment_type"] == "PayPal"]["amount"].sum()
                 zelle_total = display_df[display_df["payment_type"] == "Zelle"]["amount"].sum()
-                st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
+                if selected_type == "All":
+                    st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
+                elif selected_type == "PayPal":
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                elif selected_type == "Zelle":
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
                 # Send payment details to notification_emails
                 if st.button("Send Payment Details Email"):
                     # Fetch notification emails
@@ -194,11 +209,15 @@ def admin_tab(menu="Sponsorship Items"):
         if not df_pay.empty:
             st.markdown("<h3 style='color: #6A1B9A;'>🗑️ Delete Payment Detail</h3>", unsafe_allow_html=True)
             pay_names = df_pay["name"].tolist()
-            selected_name = st.selectbox("Select Payment Record (by Name)", pay_names)
-            pay_row = df_pay[df_pay.name == selected_name].iloc[0]
-            pay_id = int(pay_row["id"])
-            # Display details in readable format
-            st.markdown(f"""
+            name_options = ["-- Select Name --"] + pay_names if pay_names else ["-- No Names Available --"]
+            selected_name = st.selectbox("Select Payment Record (by Name)", name_options)
+            if selected_name == "-- Select Name --" or selected_name == "-- No Names Available --":
+                st.info("Please select a name to view or delete the payment record.")
+            else:
+                pay_row = df_pay[df_pay.name == selected_name].iloc[0]
+                pay_id = int(pay_row["id"])
+                # Display details in readable format
+                st.markdown(f"""
 <div style='border:1px solid #ccc; border-radius:8px; padding:1em; margin-bottom:1em;'>
 <b>Name:</b> {pay_row['name']}<br>
 <b>Amount:</b> ${pay_row['amount']:,.2f}<br>
@@ -206,16 +225,16 @@ def admin_tab(menu="Sponsorship Items"):
 <b>Comments:</b> {pay_row['comments'] or ''}
 </div>
 """, unsafe_allow_html=True)
-            st.warning(f"To confirm deletion, enter the name '{pay_row['name']}' below and click Delete.")
-            confirm_name = st.text_input("Enter this name to delete the record:", "", key=f"delete_pay_confirm_{pay_id}")
-            if st.button("Delete Payment Detail"):
-                if confirm_name.strip() == pay_row['name']:
-                    try:
-                        # Fetch notification emails
-                        cursor.execute("SELECT email FROM notification_emails")
-                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
-                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
-                        deleted_details = f"""
+                st.warning(f"To confirm deletion, enter the name '{pay_row['name']}' below and click Delete.")
+                confirm_name = st.text_input("Enter this name to delete the record:", "", key=f"delete_pay_confirm_{pay_id}")
+                if st.button("Delete Payment Detail"):
+                    if confirm_name.strip() == pay_row['name']:
+                        try:
+                            # Fetch notification emails
+                            cursor.execute("SELECT email FROM notification_emails")
+                            notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                            admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                            deleted_details = f"""
 <b>Payment Detail Deleted</b><br><br>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
     <tr><th style='{TABLE_HEADER_STYLE}'>Name</th><td>{pay_row['name']}</td></tr>
@@ -225,22 +244,22 @@ def admin_tab(menu="Sponsorship Items"):
 </table>
 <br><b>Modified By:</b> {admin_full_name}
 """
-                        cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
-                        conn.commit()
-                        # Send email to notification_emails
-                        if notification_emails:
-                            send_email(
-                                "Ganesh Chaturthi Payment Detail Deleted",
-                                deleted_details,
-                                notification_emails
-                            )
-                        st.success("🗑️ Payment detail deleted!")
-                        st.rerun()
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"❌ Failed to delete payment detail: {e}")
-                else:
-                    st.error("Name entered does not match. Record not deleted.")
+                            cursor.execute("DELETE FROM payment_details WHERE id=%s", (pay_id,))
+                            conn.commit()
+                            # Send email to notification_emails
+                            if notification_emails:
+                                send_email(
+                                    "Ganesh Chaturthi Payment Detail Deleted",
+                                    deleted_details,
+                                    notification_emails
+                                )
+                            st.success("🗑️ Payment detail deleted!")
+                            st.rerun()
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"❌ Failed to delete payment detail: {e}")
+                    else:
+                        st.error("Name entered does not match. Record not deleted.")
         return
 
     if menu == "Sponsorship Items":
