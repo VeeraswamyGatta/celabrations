@@ -41,31 +41,24 @@ def sponsorship_tab():
     combined_total = paypal_amount + zelle_amount
 
     
-    st.markdown(
-        f"""
-        <div style='text-align: center; margin-top: -1.2em; margin-bottom: -0.7em;'>
-            <h1 style='color: #E65100; margin: 0 0 0.04em 0; font-size: 2.1em; line-height: 1.05;'>Terrazzo Ganesh Celebrations 2025</h1>
-            <div style='font-size: 1.08em; color: #444; margin: 0;'>
-                <span style='margin-right: 18px;'>
-                    <span style='font-size:1.2em; vertical-align:middle;'>📅</span>
-                    <b>26th Aug 2025 to 30th Aug 2025 (5 days)</b>
-                </span><br/>
-                <span>
-                    <span style='font-size:1.2em; vertical-align:middle;'>📍</span>
-                    <b>3C Garagge</b> <span style='font-size:1.2em;vertical-align:middle;'>🙏</span> <span style='font-size:0.95em;'>(Raghava)</span>
-                </span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
     st.markdown("""
-<span style='font-size:1.13em; font-family: Times New Roman, Calibri, Verdana, serif;'>
-We warmly welcome you to join this year’s celebration by sponsoring any of the major items listed below. The cost for each item will be shared among the selected sponsors based on available slots. You may also contribute any amount of your choice as a donation.<br>
-Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.<br>
-</span>
-""", unsafe_allow_html=True)
+    <div style='background:linear-gradient(90deg,#fffde7 60%,#e3f2fd 100%); border-radius:14px; box-shadow:0 2px 12px #e0e0e0; padding:22px 28px; margin-bottom:22px; border:2px solid #ffe082;'>
+        <div style='font-size:1.18em; font-family: Times New Roman, Calibri, Verdana, serif; color:#1565c0; font-weight:bold; margin-bottom:8px; text-align:center;'>
+            🙏 Welcome to Terrazzo Ganesh Celebrations 2025!
+        </div>
+        <div style='font-size:1.13em; color: #E65100; margin-bottom:6px; text-align:center;'>
+            <span style='font-size:1.08em; color:#444;'>📅 26th Aug 2025 to 30th Aug 2025 <span style='color:#388e3c;'>(5 days)</span></span><br>
+            <span style='font-size:1.08em; color:#1565c0;'>📍 3C Garagge <span style='font-size:1.15em;vertical-align:middle;'>🙏</span> <span style='font-size:0.98em; color:#444;'>(Raghava)</span></span>
+        </div>
+        <div style='font-size:1.08em; color:#333; margin-bottom:6px;'>
+            We warmly welcome you to join this year’s celebration by sponsoring any of the major items listed below. The cost for each item will be shared among the selected sponsors based on available slots. You may also contribute any amount of your choice as a donation.
+        </div>
+        <div style='font-size:1.08em; color:#388e3c; font-weight:500;'>
+            Your generous support will help us make this year’s festivities vibrant and memorable for our entire community.
+        </div>
+    </div>
+   """, unsafe_allow_html=True)
+
 
 
 
@@ -139,22 +132,42 @@ Your generous support will help us make this year’s festivities vibrant and me
     else:
         slots_html = f"<span style='color:#d32f2f;font-weight:bold'>{remaining_slots}</span>"
         style_html = ""
+
     st.markdown(f"""
 {style_html}
-<br/>
-<div style='font-size:1.08em; color:#1565c0; margin-bottom: 0.5em;'>
-<b>Slots</b> (Total Number of Remaining Slots / Total Number of Slots): {slots_html} / <span style='color:#2E7D32;'>{total_slots}</span><br>
-<b>Total Submitted Sponsored + Donation Amount:</b> <span style='color:#2E7D32;'>${total_sponsored:,.2f} + ${total_donated:,.2f} = ${total_combined:,.2f}</span><br>
-<b>Total Amount Received + Pending: </b> <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> + <span style='color:#d32f2f;'>${float(total_combined) - float(combined_total):,.2f}</span> = <span style='color:#2E7D32;'>${float(total_combined):,.2f}</span><br>
-<b>Available Amount in Wallet:</b>
-<span style='font-weight:bold;'>
-    (<span style='color:#1565c0;'>Total Received Amount</span> - <span style='color:#d32f2f;'>Total Expense Amount</span>) :
-    <span style='color:#2E7D32;'>${float(combined_total):,.2f}</span> - <span style='color:#d32f2f;'>${float(get_total_expense_amount(conn)):,.2f}</span> = <span style='color:#388e3c; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
-</span>
-<br>
-<span style='font-size:0.98em; color:#1565c0;'>For detailed expenses, please see the <b style='color:#d32f2f; font-weight:bold;'>Expenses</b> tab above.</span><br>
-<span style='font-size:0.98em; color:#1565c0;'>For event details, please see the <b style='color:#FF9800; font-weight:bold;'>Events</b> tab above.</span><br>
-<span style='font-size:0.98em; color:#1565c0;'>For a summary of all sponsorships and donations, please visit the <b style='color:#FF9800; font-weight:bold;'>Statistics</b> tab above.</span>
+<div style='max-width:600px; margin:1.5em auto 1em auto; border-radius:18px; box-shadow:0 2px 16px rgba(21,101,192,0.10); background:#fff; padding:2em 2.2em 1.5em 2.2em;'>
+    <div style='display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2em;'>
+        <div style='font-size:1.25em; color:#6A1B9A; font-weight:bold;'>🎉 Sponsorship and Donation Summary</div>
+        <div style='font-size:1.5em;'>🛕</div>
+    </div>
+    <div style='display:flex; flex-wrap:wrap; gap:1.2em;'>
+        <div style='flex:1; min-width:220px;'>
+            <span style='font-size:1.1em; color:#1565c0;'>Slots</span><br>
+            <span style='font-size:1.5em; color:#2E7D32; font-weight:bold;'>{slots_html}</span> / <span style='color:#1565c0;'>{total_slots}</span>
+            <span style='font-size:1.2em; margin-left:8px;'>🪔</span>
+        </div>
+        <div style='flex:1; min-width:220px;'>
+            <span style='font-size:1.1em; color:#1565c0;'>Total Sponsored & Donated</span><br>
+            <span style='font-size:1.2em; color:#2E7D32; font-weight:bold;'>${total_sponsored:,.2f}</span> + <span style='font-size:1.2em; color:#388E3C; font-weight:bold;'>${total_donated:,.2f}</span> = <span style='font-size:1.2em; color:#1565c0; font-weight:bold;'>${total_combined:,.2f}</span>
+            <span style='font-size:1.2em; margin-left:8px;'>💰</span>
+        </div>
+        <div style='flex:1; min-width:220px;'>
+            <span style='font-size:1.1em; color:#1565c0;'>Total Received & Pending</span><br>
+            <span style='font-size:1.2em; color:#2E7D32; font-weight:bold;'>${float(combined_total):,.2f}</span> + <span style='font-size:1.2em; color:#d32f2f; font-weight:bold;'>{float(total_combined) - float(combined_total):,.2f}</span> = <span style='font-size:1.2em; color:#1565c0; font-weight:bold;'>${float(total_combined):,.2f}</span>
+            <span style='font-size:1.2em; margin-left:8px;'>📥</span>
+        </div>
+        <div style='flex:1; min-width:220px;'>
+            <span style='font-size:1.1em; color:#1565c0;'>Available Wallet</span><br>
+            <span style='font-size:1.2em; color:#388e3c; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
+            <span style='font-size:1.2em; margin-left:8px;'>👛</span>
+        </div>
+    </div>
+    <hr style='margin:1.5em 0 1em 0; border:0; border-top:1.5px solid #eee;'>
+    <div style='font-size:1.05em; color:#1565c0; margin-bottom:0.5em;'>
+        <span style='margin-right:18px;'>📊 <b>Expenses:</b> See <b style='color:#d32f2f;'>Expenses</b> tab above.</span><br>
+        <span style='margin-right:18px;'>📅 <b>Events:</b> See <b style='color:#FF9800;'>Events</b> tab above.</span><br>
+        <span>📈 <b>Summary:</b> See <b style='color:#FF9800;'>Statistics</b> tab above.</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -165,12 +178,25 @@ Your generous support will help us make this year’s festivities vibrant and me
     if st.session_state.get("user_logged_in") and not st.session_state.get("admin_logged_in"):
         if sponsorship_limit and sponsorship_limit < total_combined:
             st.markdown("""
-<br>
-<div style='font-size:1.18em; color:#d32f2f; font-weight:bold; border:2px solid #d32f2f; border-radius:8px; padding:12px; background:#fff3f3; margin-bottom: 0.5em;'>
-<span style='font-size:1.25em;'>❗</span> Thanks for reaching the sponsorship goal for the Ganesh Chaturthi celebration.<br>
-We are sorry, direct submissions are now closed.<br>
-<span style='font-size:1.05em;'>Please reach out in the <b>Ganesh Chaturthi celebrations 2025 WhatsApp group</b> to participate.<br>
-The team will collect your information and submit it for you.</span>
+<div style='
+    max-width: 520px;
+    margin: 2em auto 1.5em auto;
+    background: linear-gradient(90deg, #ffe0e0 0%, #fff3f3 100%);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(211,47,47,0.08);
+    padding: 1.7em 1.5em 1.2em 1.5em;
+    border: 2px solid #d32f2f;
+    text-align: center;
+'>
+    <div style='font-size:2em; color:#d32f2f; font-weight:bold; margin-bottom:0.3em;'>🎉 Sponsorship Goal Reached!</div>
+    <div style='font-size:1.15em; color:#333; margin-bottom:0.7em;'>
+        Thanks for reaching the sponsorship goal for the Ganesh Chaturthi celebration.<br>
+        <span style='color:#d32f2f; font-weight:bold;'>We are sorry, direct submissions are now closed.</span>
+    </div>
+    <div style='font-size:1.08em; color:#1565c0; margin-bottom:0.5em;'>
+        Please reach out in the <b>Ganesh Chaturthi celebrations 2025 WhatsApp group</b> to participate.<br>
+        The team will collect your information and submit it for you.
+    </div>
 </div>
 """, unsafe_allow_html=True)
             show_submission_inputs = False
@@ -295,34 +321,55 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
             per_slot = cost / limit if limit else cost
             def fmt_amt(val):
                 return str(int(val)) if val == int(val) else str(val)
-            st.markdown(
-                """
-                <style>
-                .blink {
-                    animation: blinker 1s linear infinite;
-                }
-                @keyframes blinker {
-                    50% { opacity: 0; }
-                }
-                </style>
-                """ +
-                f"<b>{item}</b> — <span style='color:#1565c0;'>${fmt_amt(cost)} / {limit} = ${fmt_amt(per_slot)}$ per slot</span> | Total Slots: {limit}, Available Slots: {remaining_str}",
-                unsafe_allow_html=True
-            )
-            if sponsor_names:
+            # Modern card for fully sponsored items
+            if remaining > 0:
                 st.markdown(
-                    f"<span style='font-size: 0.95em;'>Sponsored Names: <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> "
-                    + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
-                    + "</span>",
+                    """
+                    <style>
+                    .blink {
+                        animation: blinker 1s linear infinite;
+                    }
+                    @keyframes blinker {
+                        50% { opacity: 0; }
+                    }
+                    </style>
+                    """ +
+                    f"<b>{item}</b> — <span style='color:#1565c0;'>${fmt_amt(cost)} / {limit} = ${fmt_amt(per_slot)}$ per slot</span> | Total Slots: {limit}, Available Slots: {remaining_str}",
                     unsafe_allow_html=True
                 )
-            if remaining > 0:
-                if st.checkbox(f"Sponsor {item}", key=item):
-                    selected_items.append(item)
+                if sponsor_names:
+                    st.markdown(
+                        f"<span style='font-size: 0.95em;'>Sponsored Names: <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> "
+                        + ", ".join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])
+                        + "</span>",
+                        unsafe_allow_html=True
+                    )
+                # Only show sponsor checkbox if slots are available
+                if remaining > 0:
+                    if st.checkbox(f"Sponsor {item}", key=item):
+                        selected_items.append(item)
                 st.markdown("---")
             else:
                 st.markdown(
-                    f"<span style='color:#d32f2f;font-weight:bold;'>Slots are not available. This item is fully sponsored! <span style='font-size:1.1em;vertical-align:middle;'>🙏</span></span>",
+                    f"""
+                    <div style='background:linear-gradient(90deg,#ffe0b2 60%,#fffde7 100%); border-radius:14px; box-shadow:0 2px 12px #e0e0e0; padding:22px 28px; margin-bottom:22px; border:2px solid #ffb74d;'>
+                        <div style='display:flex; align-items:center; justify-content:space-between;'>
+                            <div style='font-size:1.15em; font-weight:bold; color:#d84315;'>{item}</div>
+                            <div style='font-size:1.1em; color:#1565c0; font-weight:bold;'>${fmt_amt(cost)}</div>
+                        </div>
+                        <div style='margin:10px 0 6px 0; font-size:1.05em;'>
+                            <span style='color:#388E3C;'>${fmt_amt(cost)}</span> / <span style='color:#1565c0;'>{limit}</span> = <span style='color:#388E3C;'>{fmt_amt(per_slot)}</span> per slot
+                            &nbsp;|&nbsp; <span style='color:#1565c0;'>Total Slots: {limit}</span>
+                            &nbsp;|&nbsp; <span style='color:#2E7D32;'>Available Slots: 0</span>
+                        </div>
+                        <div style='margin:10px 0 0 0; font-size:1em; color:#333;'>
+                            <span style='font-weight:500;'>Sponsored Names:</span> <span style='font-size:1.1em;vertical-align:middle;'>🙏</span> {', '.join([f"<span style='color:#388e3c;font-weight:bold'>{n}</span>" for n in sponsor_names])}
+                        </div>
+                        <div style='margin-top:14px; padding:10px 0; background:#ffe0b2; border-radius:8px; font-size:1.08em; color:#d84315; font-weight:bold; text-align:center; box-shadow:0 1px 4px #ffe0b2;'>
+                            <span style='font-size:1.12em;'>Slots are not available. This item is fully sponsored! <span style='font-size:1.1em;vertical-align:middle;'>🙏</span></span>
+                        </div>
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
                 st.markdown("---")
@@ -334,12 +381,27 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         # Only show donors with donation >= 5
         donor_rows_filtered = [row for row in donor_rows if row[1] >= 5]
         if donor_rows_filtered:
-            donor_df = pd.DataFrame(donor_rows_filtered, columns=["Donor Name", "Amount"])
-            donor_df["Amount"] = donor_df["Amount"].apply(lambda x: f"${x}")
-            donor_df.index = donor_df.index + 1  # Start index from 1
-            st.markdown("<b>🙏 Donors</b>", unsafe_allow_html=True)
-            st.table(donor_df)
-        donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
+            donor_table_html = f"""
+<div style='background:linear-gradient(90deg,#e3f2fd 60%,#fffde7 100%); border-radius:14px; box-shadow:0 2px 12px #e0e0e0; padding:18px 24px; margin-bottom:18px; border:2px solid #90caf9;'>
+    <div style='font-size:1.15em; font-weight:bold; color:#1976d2; margin-bottom:10px;'>🙏 Donors</div>
+    <table style='width:100%; border-collapse:collapse; font-size:1.05em;'>
+        <thead>
+            <tr style='background:#bbdefb;'>
+                <th style='padding:8px 12px; color:#1976d2; font-weight:600; border-bottom:2px solid #90caf9;'>Donor Name</th>
+                <th style='padding:8px 12px; color:#1976d2; font-weight:600; border-bottom:2px solid #90caf9;'>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join([f"<tr><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd;'>{row[0]}</td><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd; color:#388e3c; font-weight:bold;'>${row[1]}</td></tr>" for row in donor_rows_filtered])}
+        </tbody>
+    </table>
+</div>
+"""
+            st.markdown(donor_table_html, unsafe_allow_html=True)
+        # Only show donation input if there are available slots in any item and not in donors tab
+        if 'Donors' not in st.session_state.get('active_tab', ''):
+            if any((row[2] - sum([1 for s in sponsor_names if s == row[0]]) > 0) for row in items):
+                donation = st.number_input("Enter donation amount (optional)", min_value=0, value=0)
 
     def validate_us_phone(phone):
         digits = re.sub(r'\D', '', phone)

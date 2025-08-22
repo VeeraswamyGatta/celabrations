@@ -119,7 +119,12 @@ if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
     """, unsafe_allow_html=True)
     
     # Removed empty login card div that caused extra box
-    st.markdown("<div class='login-title'>Login</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background:linear-gradient(90deg,#e3f2fd 60%,#fffde7 100%); border-radius:16px; box-shadow:0 2px 12px #e0e0e0; padding:28px 32px 18px 32px; margin:18px auto 18px auto; border:2px solid #90caf9; max-width:420px;'>
+        <div style='font-size:1.35em; font-weight:bold; color:#1976d2; margin-bottom:12px; text-align:center;'>🙏 Login</div>
+        <div style='font-size:1.08em; color:#333; margin-bottom:10px; text-align:center;'>Please login to participate or manage the Ganesh Celebrations.</div>
+    </div>
+    """, unsafe_allow_html=True)
     role = st.selectbox("Login as", ["User", "Admin"], index=0)
     if role == "User":
         with st.form("user_login_form"):
