@@ -31,6 +31,7 @@ def admin_tab(menu="Sponsorship Items"):
         # Fetch sponsor names and their total sponsored+donated amount
         def get_sponsor_df():
             df = pd.read_sql("SELECT name, SUM(COALESCE(donation,0)) AS donation_sum FROM sponsors GROUP BY name", conn)
+            df.columns = [c.lower() for c in df.columns]
             cursor2 = conn.cursor()
             # Calculate per-sponsor amount by dividing item amount by sponsor_limit
             cursor2.execute("""
@@ -52,6 +53,7 @@ def admin_tab(menu="Sponsorship Items"):
         with tab1:
             # Received: Payment details table
             df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
+            df_pay.columns = [c.lower() for c in df_pay.columns]
             if not df_pay.empty:
                 # Add filters for payment_type and comments
                 payment_types = ["All"] + sorted(df_pay["payment_type"].dropna().unique().tolist())
@@ -111,6 +113,7 @@ def admin_tab(menu="Sponsorship Items"):
         with tab2:
             # Not Received: Names/Amounts not in payment_details
             df_pay = pd.read_sql("SELECT name FROM payment_details", conn)
+            df_pay.columns = [c.lower() for c in df_pay.columns]
             paid_names = set(df_pay["name"].tolist())
             not_received_df = sponsor_df[~sponsor_df["name"].isin(paid_names)][["name", "total_amount"]]
             not_received_df = not_received_df.rename(columns={"name": "Name", "total_amount": "Amount"})
@@ -125,6 +128,7 @@ def admin_tab(menu="Sponsorship Items"):
         with tab3:
             # Mismatch Records: Names in payment_details where amount does not match sponsorship total_amount
             df_pay = pd.read_sql("SELECT name, amount FROM payment_details", conn)
+            df_pay.columns = [c.lower() for c in df_pay.columns]
             mismatch_rows = []
             for _, row in df_pay.iterrows():
                 name = row["name"]
@@ -146,6 +150,7 @@ def admin_tab(menu="Sponsorship Items"):
         st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Payment Detail</h3>", unsafe_allow_html=True)
         # Only show names not present in payment_details for adding payment
         df_pay_names = pd.read_sql("SELECT name FROM payment_details", conn)
+        df_pay_names.columns = [c.lower() for c in df_pay_names.columns]
         paid_names_set = set(df_pay_names["name"].tolist())
         unpaid_names = [n for n in sponsor_names if n not in paid_names_set]
         # Add a placeholder for selectbox
@@ -206,6 +211,7 @@ def admin_tab(menu="Sponsorship Items"):
 
         # Delete Payment Detail section last
         df_pay = pd.read_sql("SELECT id, name, amount, date, comments FROM payment_details ORDER BY name ASC, id DESC", conn)
+        df_pay.columns = [c.lower() for c in df_pay.columns]
         if not df_pay.empty:
             st.markdown("<h3 style='color: #6A1B9A;'>🗑️ Delete Payment Detail</h3>", unsafe_allow_html=True)
             pay_names = df_pay["name"].tolist()
@@ -265,6 +271,7 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Sponsorship Items":
         st.markdown("<h2 style='color: #6A1B9A;'>Sponsorship Items Overview</h2>", unsafe_allow_html=True)
         df = pd.read_sql("SELECT * FROM sponsorship_items ORDER BY id", conn)
+        df.columns = [c.lower() for c in df.columns]
         # Show table with index starting from 1 and hide 'id' column
         df_display = df.copy()
         if 'id' in df_display.columns:
@@ -308,6 +315,7 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Sponsorship Record":
         st.markdown("<h2 style='color: #6A1B9A;'>✏️ Edit Sponsorship Record</h2>", unsafe_allow_html=True)
         df_sponsors = pd.read_sql("SELECT * FROM sponsors ORDER BY id", conn)
+        df_sponsors.columns = [c.lower() for c in df_sponsors.columns]
         if not df_sponsors.empty:
             # Add Type column
             display_df = df_sponsors.copy()
@@ -510,6 +518,7 @@ def admin_tab(menu="Sponsorship Items"):
     if menu == "Manage Notification Emails":
         st.markdown("<h2 style='color: #6A1B9A;'>✉️ Manage Notification Emails</h2>", unsafe_allow_html=True)
         df_emails = pd.read_sql("SELECT * FROM notification_emails ORDER BY id", conn)
+        df_emails.columns = [c.lower() for c in df_emails.columns]
         if not df_emails.empty:
             display_emails = df_emails.drop(columns=["id"])
             display_emails.index = display_emails.index + 1

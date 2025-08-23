@@ -43,124 +43,44 @@ def expenses_tab():
         if rows:
             columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments", "Receipt", "Receipt Blob"]
             df = pd.DataFrame(rows, columns=columns)
-            # Remove all icon logic and use plain text for table columns
             def format_comments(comments):
                 if not comments:
                     return ""
-                # Split by newline or pipe, keep each as a separate line
                 import re
                 lines = re.split(r'[\n|]+', comments)
-                html_lines = [f"<span style='display:block;margin-bottom:2px;'>{line.strip()}</span>" for line in lines if line.strip()]
-                return "<div style='line-height:1.5;'>" + "".join(html_lines) + "</div>"
+                # Return as HTML with <br> for each line
+                return "<br>".join([line.strip() for line in lines if line.strip()])
             df["Comments"] = df["Comments"].apply(format_comments)
-            # Display each expense row with details and download button in Receipt column
-            st.markdown("""
-                <style>
-                .expense-table-container {
-                    background: #fff;
-                    border-radius: 16px;
-                    box-shadow: 0 4px 24px rgba(109,76,65,0.10);
-                    padding: 24px 16px 16px 16px;
-                    margin-bottom: 24px;
-                }
-                .expense-header {
-                    background: linear-gradient(90deg, #FFECB3 0%, #FFE0B2 100%);
-                    border-bottom: 2px solid #6D4C41;
-                    font-weight: bold;
-                    color: #6D4C41;
-                    padding: 12px 0;
-                    border-radius: 8px 8px 0 0;
-                    font-size: 1.08em;
-                    letter-spacing: 0.5px;
-                }
-                .expense-row {
-                    border-bottom: 1px solid #e0e0e0;
-                    padding: 12px 0;
-                    border-radius: 0 0 8px 8px;
-                    box-shadow: 0 2px 8px rgba(109,76,65,0.04);
-                    transition: background 0.2s;
-                }
-                .expense-row.alt {
-                    background: #FFF8E1;
-                }
-                .expense-row:hover {
-                    background: #FFE0B2;
-                }
-                .expense-cell {
-                    padding: 12px 0;
-                    font-size: 1.01em;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-            # Removed empty expense-table-container div to eliminate extra space before table
-            # Removed duplicate Expenses Table heading
-            # Responsive HTML table for expenses
-            table_html = """
-<style>
-@media (max-width: 600px) {
-  .expense-table th, .expense-table td { font-size: 0.95em; padding: 8px 4px; }
-  .expense-table { font-size: 0.95em; }
-}
-.expense-table-container { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(109,76,65,0.10); padding: 24px 8px 16px 8px; margin-bottom: 24px; }
-.expense-table { width: 100%; border-collapse: collapse; }
-.expense-table th { background: linear-gradient(90deg, #FFECB3 0%, #FFE0B2 100%); border-bottom: 2px solid #6D4C41; color: #6D4C41; font-weight: bold; padding: 12px 6px; }
-.expense-table td { border-bottom: 1px solid #e0e0e0; padding: 12px 6px; }
-.expense-table tr:nth-child(even) { background: #FFF8E1; }
-.expense-table tr:hover { background: #FFE0B2; }
-</style>
-<div class='expense-table-container'>
-<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>
-<table class='expense-table'>
-  <thead>
-    <tr>
-      <th>Category</th>
-      <th>Sub Category</th>
-      <th>Amount</th>
-      <th>Date</th>
-      <th>Comments</th>
-      <th>Receipt</th>
-    </tr>
-  </thead>
-  <tbody>
-"""
+            st.markdown("<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>", unsafe_allow_html=True)
+            # Render table using Streamlit columns for each row
+            header_cols = st.columns([2,2,2,2,3,2])
+            headers = ["Category", "Sub Category", "Amount", "Date", "Comments", "Receipt"]
+            for col, header in zip(header_cols, headers):
+                col.markdown(f"<b>{header}</b>", unsafe_allow_html=True)
             for idx, row in df.iterrows():
-                table_html += "<tr>"
-                for col in ["Category", "Sub Category", "Amount", "Date", "Comments"]:
-                    val = row[col]
-                    if col == "Comments":
-                        table_html += f"<td>{val}</td>"
-                    else:
-                        table_html += f"<td>{val}</td>"
-                # Receipt column
+                cols = st.columns([2,2,2,2,3,2])
+                cols[0].markdown(row["Category"])
+                cols[1].markdown(row["Sub Category"])
+                cols[2].markdown(f"{row['Amount']:.2f}")
+                cols[3].markdown(str(row["Date"]))
+                cols[4].markdown(row["Comments"], unsafe_allow_html=True)
                 receipt_name = row["Receipt"]
                 receipt_blob = row["Receipt Blob"]
                 if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
                     data = receipt_blob
                     if isinstance(data, memoryview):
                         data = data.tobytes()
-                    # Generate a download link using Streamlit's download_button outside the table
-                    # Instead, use a placeholder and add download_button after rendering table
-                    table_html += f"<td><span id='download_{idx}'></span></td>"
-                else:
-                    table_html += "<td>No Receipt</td>"
-                table_html += "</tr>"
-            table_html += "</tbody></table></div>"
-            st.markdown(table_html, unsafe_allow_html=True)
-            # Add download buttons for receipts after table rendering
-            for idx, row in df.iterrows():
-                receipt_name = row["Receipt"]
-                receipt_blob = row["Receipt Blob"]
-                if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
-                    data = receipt_blob
-                    if isinstance(data, memoryview):
-                        data = data.tobytes()
-                    st.download_button(
+                    elif isinstance(data, bytearray):
+                        data = bytes(data)
+                    cols[5].download_button(
                         label="Download Receipt",
                         data=data,
                         file_name=receipt_name,
                         mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
                         key=f"download_{idx}"
                     )
+                else:
+                    cols[5].markdown("No Receipt")
             st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
         else:
             st.info("No expenses recorded yet.")
@@ -185,13 +105,15 @@ def expenses_tab():
         st.markdown("### ➕ Add Expense")
         cursor.execute("SELECT item FROM sponsorship_items")
         categories = [row[0] for row in cursor.fetchall()]
-        uploaded_receipt = st.file_uploader("Upload Receipt (JPG/PNG, max 1MB)", type=["jpg", "jpeg", "png"], key="add_expense_receipt")
+        MAX_RECEIPT_SIZE_MB = 10
+        MAX_RECEIPT_SIZE_BYTES = MAX_RECEIPT_SIZE_MB * 1024 * 1024
+        uploaded_receipt = st.file_uploader(f"Upload Receipt (JPG/PNG, max {MAX_RECEIPT_SIZE_MB}MB)", type=["jpg", "jpeg", "png"], key="add_expense_receipt")
         receipt_path = None
         receipt_bytes = None
         receipt_filename = None
         if uploaded_receipt is not None:
-            if uploaded_receipt.size > 1 * 1024 * 1024:
-                st.error("Receipt file size should not exceed 1 MB.")
+            if uploaded_receipt.size > MAX_RECEIPT_SIZE_BYTES:
+                st.error(f"Receipt file size should not exceed {MAX_RECEIPT_SIZE_MB} MB.")
             elif uploaded_receipt.type not in ["image/jpeg", "image/png"]:
                 st.error("Only JPG and PNG files are allowed.")
             else:
@@ -303,6 +225,8 @@ def expenses_tab():
                         data = receipt_blob
                         if isinstance(data, memoryview):
                             data = data.tobytes()
+                        elif isinstance(data, bytearray):
+                            data = bytes(data)
                         st.download_button(
                             label="Download Receipt",
                             data=data,
@@ -320,10 +244,10 @@ def expenses_tab():
                         st.info("No receipt uploaded yet. You can upload one below.")
 
                     # Allow uploading new receipt if none exists or after deletion
-                    uploaded_new_receipt = st.file_uploader("Upload New Receipt (JPG/PNG, max 1MB)", type=["jpg", "jpeg", "png"], key=f"edit_upload_receipt_{selected_id}")
+                    uploaded_new_receipt = st.file_uploader(f"Upload New Receipt (JPG/PNG, max {MAX_RECEIPT_SIZE_MB}MB)", type=["jpg", "jpeg", "png"], key=f"edit_upload_receipt_{selected_id}")
                     if uploaded_new_receipt is not None:
-                        if uploaded_new_receipt.size > 1 * 1024 * 1024:
-                            st.error("Receipt file size should not exceed 1 MB.")
+                        if uploaded_new_receipt.size > MAX_RECEIPT_SIZE_BYTES:
+                            st.error(f"Receipt file size should not exceed {MAX_RECEIPT_SIZE_MB} MB.")
                         elif uploaded_new_receipt.type not in ["image/jpeg", "image/png"]:
                             st.error("Only JPG and PNG files are allowed.")
                         else:

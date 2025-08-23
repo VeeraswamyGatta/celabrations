@@ -17,7 +17,8 @@ CREATE TABLE payment_details (
     name STRING NOT NULL,
     amount NUMBER(10,2) NOT NULL,
     date DATE NOT NULL,
-    comments STRING
+    comments STRING,
+    payment_type STRING
 );
 
 CREATE TABLE transfers (
@@ -41,7 +42,8 @@ CREATE TABLE sponsors (
     mobile STRING,
     apartment STRING NOT NULL,
     sponsorship STRING,
-    donation NUMBER DEFAULT 0
+    donation NUMBER DEFAULT 0,
+    gothram STRING
 );
 
 CREATE TABLE events (

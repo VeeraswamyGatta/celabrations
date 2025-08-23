@@ -57,10 +57,10 @@ def migrate_table(table_name, columns):
 	sf_conn.close()
 
 if __name__ == "__main__":
-	migrate_table("payment_details", ["id", "name", "amount", "date", "comments"])
+	migrate_table("payment_details", ["id", "name", "amount", "date", "comments", "payment_type"])
 	migrate_table("transfers", ["id", "name", "phone", "email"])
 	migrate_table("sponsorship_items", ["id", "item", "amount", "sponsor_limit"])
-	migrate_table("sponsors", ["id", "name", "email", "mobile", "apartment", "sponsorship", "donation"])
+	migrate_table("sponsors", ["id", "name", "email", "mobile", "apartment", "sponsorship", "donation", "gothram"])
 	migrate_table("events", ["id", "title", "event_date", "event_time", "link", "description"])
 	migrate_table("expenses", ["id", "category", "sub_category", "amount", "date", "spent_by", "comments", "receipt_path", "receipt_blob", "status", "created_at"])
 	migrate_table("prasad_seva", ["id", "seva_type", "names", "item_name", "num_people", "apartment", "seva_date", "pooja_time", "created_by", "created_at", "status"])

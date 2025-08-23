@@ -134,18 +134,19 @@ def prasad_seva_tab():
         item_names = [item_name.strip()] if item_name.strip() else []
         apartment = st.text_input("Apartment Number", key="prasad_individual_apartment", placeholder="e.g. 1203")
 
-    num_people = st.number_input("How many people are you bringing item for?", min_value=1, value=1)
+    num_people = st.number_input("How many people are you bringing item for?", min_value=1, value=st.session_state.get('prasad_num_people', 1), key="prasad_num_people")
     # Date picker, restrict to 26th to 30th August 2025
     min_date = datetime.date(2025, 8, 26)
     max_date = datetime.date(2025, 8, 30)
-    seva_date = st.date_input("Date", value=min_date, min_value=min_date, max_value=max_date)
+    seva_date = st.date_input("Date", value=st.session_state.get('prasad_seva_date', min_date), min_value=min_date, max_value=max_date, key="prasad_seva_date")
     # Only enable Morning Pooja if date is not 26th Aug
     pooja_options = ["Morning Pooja", "Evening Pooja"]
     if seva_date == datetime.date(2025, 8, 26):
         pooja_options = ["Evening Pooja"]
-    pooja_time = st.radio("Pooja Time", pooja_options, horizontal=True)
+    pooja_time = st.radio("Pooja Time", pooja_options, horizontal=True, key="prasad_pooja_time")
 
     # Add Prasad Seva
+    # submitted_info logic removed
     if st.button("✅ Add Prasad Seva"):
         if not names:
             st.error("Please enter at least one name.")
@@ -166,8 +167,35 @@ def prasad_seva_tab():
                     (seva_type, ', '.join(names), item, num_people, apartment, seva_date, pooja_time, st.session_state.get('admin_full_name', 'User'), 'active')
                 )
             conn.commit()
-            st.success("✅ Prasad Seva added!")
-            st.rerun()
+            submitted_info = {
+                "Type": seva_type,
+                "Names": ', '.join(names),
+                "Item Name(s)": ', '.join(item_names),
+                "Apartment": apartment,
+                "Number of People": num_people,
+                "Date": seva_date.strftime('%d-%b-%Y'),
+                "Pooja Time": pooja_time
+            }
+            st.session_state["prasad_last_submission"] = submitted_info
+            st.success("✅ Added seva successfully")
+            # Show submitted info immediately
+            st.markdown("""
+<div style='background:#e3f2fd;border-radius:10px;padding:1em 1.2em 1.2em 1.2em;margin-top:1em;box-shadow:0 2px 8px #90caf9;'>
+    <h4 style='color:#1565C0;margin-top:0;margin-bottom:1em;'>Your Submitted Prasad Seva</h4>
+    <table style='width:100%;font-size:1.08em;'>
+        <tr><td style='font-weight:600;color:#1565C0;'>Type:</td><td>{Type}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Names:</td><td>{Names}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Item Name(s):</td><td>{Item Name(s)}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Apartment:</td><td>{Apartment}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Number of People:</td><td>{Number of People}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Date:</td><td>{Date}</td></tr>
+        <tr><td style='font-weight:600;color:#1565C0;'>Pooja Time:</td><td>{Pooja Time}</td></tr>
+    </table>
+</div>
+""".format(**submitted_info), unsafe_allow_html=True)
+            if st.button("🔄 Refresh Page for Updated Entries"):
+                st.rerun()
+    # removed view submitted info button and logic
 
     # Edit/Delete Prasad Seva (now for all users)
     if rows:

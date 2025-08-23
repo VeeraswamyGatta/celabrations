@@ -11,7 +11,6 @@ def send_email(subject, body, recipients):
     EMAIL_PASSWORD = st.secrets["email_password"]
     SMTP_SERVER = st.secrets["smtp_server"]
     SMTP_PORT = st.secrets["smtp_port"]
-    # Optionally support attachments
     def send_with_attachment(recipient, subject, body, attachment=None, filename=None, mime_type=None):
         msg = MIMEMultipart()
         msg['From'] = EMAIL_SENDER
@@ -35,4 +34,6 @@ def send_email(subject, body, recipients):
                 server.sendmail(EMAIL_SENDER, recipient, msg.as_string())
         except Exception as e:
             print(f"Failed to send email to {recipient}: {e}")
-    return send_with_attachment
+    # Send to all recipients, only attach if attachment is provided (expenses)
+    for recipient in recipients:
+        send_with_attachment(recipient, subject, body)

@@ -38,6 +38,7 @@ def statistics_tab():
 
     # Build sponsorship records with type and split item/donation, and show correct sponsored amount
     raw_df = pd.read_sql("SELECT name, email, mobile, sponsorship, donation FROM sponsors ORDER BY id", conn)
+    raw_df.columns = [c.lower() for c in raw_df.columns]
     # Get sponsorship item amounts and limits for per-slot calculation
     cursor.execute("SELECT item, amount, sponsor_limit FROM sponsorship_items")
     item_amt_map = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}

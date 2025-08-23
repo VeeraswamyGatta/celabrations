@@ -214,11 +214,26 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
     if st.session_state.get('show_submission') and st.session_state.get('submitted_data'):
         st.success('Thank you for your submission! Here are your submitted details:')
         submitted_data = st.session_state['submitted_data']
+        # Build the card-style HTML in one string and render with unsafe_allow_html=True
+        card_html = """
+<div style='background:#f3e5f5;border-radius:12px;padding:1.5em 1.2em 1.2em 1.2em;margin-bottom:1em;box-shadow:0 2px 8px #d1c4e9;'>
+    <h3 style='color:#6A1B9A;margin-top:0;margin-bottom:1em;'>Your Submitted Details</h3>
+    <table style='width:100%;font-size:1.08em;'>
+"""
         for k, v in submitted_data.items():
-            if isinstance(v, list):
-                st.markdown(f"**{k}:** {', '.join(str(i) for i in v)}")
+            if k == "How to Pay":
+                card_html += """
+    <tr><td colspan='2' style='padding-top:1em;padding-bottom:0.5em;'><b>How to Pay:</b></td></tr>
+    <tr><td colspan='2' style='background:#ede7f6;padding:0.8em 1em;border-radius:8px;'>
+                """ + v + """
+    </td></tr>
+                """
+            elif isinstance(v, list):
+                card_html += f"<tr><td style='font-weight:600;color:#6A1B9A;'>{k}:</td><td>{', '.join(str(i) for i in v)}</td></tr>"
             else:
-                st.markdown(f"**{k}:** {v}")
+                card_html += f"<tr><td style='font-weight:600;color:#6A1B9A;'>{k}:</td><td>{v}</td></tr>"
+        card_html += "</table></div>"
+        st.markdown(card_html, unsafe_allow_html=True)
         if st.button('🏠 Home', key='home_button'):
             st.session_state['show_submission'] = False
             st.session_state['submitted_data'] = None
@@ -478,6 +493,18 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                         submitted_data["Donation"] = f"${donation}"
                     if (selected_items or donation > 0) and contributed_amount:
                         submitted_data["Contributed Amount"] = f"${contributed_amount}"
+                    # Add payment instructions
+                    paypal_link = st.secrets.get("paypal_link", "")
+                    paypal_icon = "<img src='https://www.paypalobjects.com/webstatic/icon/pp258.png' alt='PayPal' style='height:32px;vertical-align:middle;margin-right:8px;'/>"
+                    if paypal_link:
+                        paypal_html = f"<a href='{paypal_link}' target='_blank'>{paypal_icon}<b>Pay via PayPal</b></a>"
+                    else:
+                        paypal_html = "<span style='color:#d32f2f;'>PayPal link not available.</span>"
+                    submitted_data["How to Pay"] = (
+                        "To pay your sponsorship or donation, please use the PayPal link below:<br>"
+                        f"{paypal_html}"
+                        "<br><b>For Zelle payment, pay money to any one of these persons: <span style='color:#1565C0;'>Purna Magum / Ganesh Thamma</span></b>"
+                    )
                     st.session_state['submitted_data'] = submitted_data
                     st.session_state['show_submission'] = True
                     notification_emails = get_notification_emails()
