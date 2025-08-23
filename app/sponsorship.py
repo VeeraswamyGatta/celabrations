@@ -28,12 +28,14 @@ def sponsorship_tab():
     zelle_amount = 0.0
     try:
         paypal_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'PayPal'", conn)
+        paypal_df.columns = [c.lower() for c in paypal_df.columns]
         if not paypal_df.empty:
             paypal_amount = paypal_df["amount"].astype(float).sum()
     except Exception:
         paypal_amount = 0.0
     try:
         zelle_df = pd.read_sql("SELECT amount FROM payment_details WHERE payment_type = 'Zelle'", conn)
+        zelle_df.columns = [c.lower() for c in zelle_df.columns]
         if not zelle_df.empty:
             zelle_amount = zelle_df["amount"].astype(float).sum()
     except Exception:
