@@ -4,26 +4,6 @@ import datetime
 from .db import get_connection
 import io
 
-def create_expenses_table():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS expenses (
-            id SERIAL PRIMARY KEY,
-            category TEXT NOT NULL,
-            sub_category TEXT NOT NULL,
-            amount NUMERIC(10,2) NOT NULL,
-            date DATE NOT NULL,
-            spent_by TEXT NOT NULL,
-            comments TEXT,
-            receipt_path TEXT,
-            receipt_blob BYTEA,
-            status VARCHAR(10) DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-create_expenses_table()
 
 def expenses_tab():
     conn = get_connection()

@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 import datetime
-from app.db import get_connection, create_tables
+from app.db import get_connection
 from app.sponsorship import sponsorship_tab
 from app.events import events_tab
 from app.statistics import statistics_tab
@@ -28,9 +28,6 @@ def get_admin_password():
 # ---------- DB Setup ----------
 
 conn = get_connection()
-create_tables(conn)
-from app.db import create_transfers_table
-create_transfers_table(conn)
 
 
 # ---------- Styling ----------
