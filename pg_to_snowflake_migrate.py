@@ -22,39 +22,52 @@ def get_snowflake_conn():
 		role=st.secrets["sf_role"]
 	)
 
+def create_snowflake_sequence(sf_cur, table_name, start_value):
+    seq_name = f"{table_name}_id_seq"
+    sf_cur.execute(f"CREATE OR REPLACE SEQUENCE {seq_name} START WITH {start_value} INCREMENT BY 1")
+    return seq_name
+
 def migrate_table(table_name, columns):
-	pg_conn = get_postgres_conn()
-	pg_cur = pg_conn.cursor()
-	sf_conn = get_snowflake_conn()
-	sf_cur = sf_conn.cursor()
+    pg_conn = get_postgres_conn()
+    pg_cur = pg_conn.cursor()
+    sf_conn = get_snowflake_conn()
+    sf_cur = sf_conn.cursor()
 
-	# Fetch all data from Postgres
-	pg_cur.execute(f"SELECT {', '.join(columns)} FROM {table_name}")
-	rows = pg_cur.fetchall()
+    # Get max id from Postgres
+    pg_cur.execute(f"SELECT MAX(id) FROM {table_name}")
+    max_id = pg_cur.fetchone()[0] or 0
+    next_id = max_id + 1
 
-	# Delete all data in Snowflake target table
-	sf_cur.execute(f"DELETE FROM {table_name}")
+    # Create sequence for id starting from next_id
+    seq_name = create_snowflake_sequence(sf_cur, table_name, start_value=next_id)
 
-	# Insert data into Snowflake
-	if rows:
-		for row in rows:
-			row = list(row)
-			# Special handling for expenses.receipt_blob
-			if table_name == "expenses":
-				idx = columns.index("receipt_blob")
-				val = row[idx]
-				if isinstance(val, memoryview):
-					row[idx] = val.tobytes().hex()
-				elif isinstance(val, bytes):
-					row[idx] = val.hex()
-				elif val is None:
-					row[idx] = None
-			sf_cur.execute(f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})", tuple(row))
+    # Fetch all data from Postgres (excluding id)
+    pg_cur.execute(f"SELECT {', '.join(columns[1:])} FROM {table_name}")
+    rows = pg_cur.fetchall()
 
-	pg_cur.close()
-	pg_conn.close()
-	sf_cur.close()
-	sf_conn.close()
+    # Delete all data in Snowflake target table
+    sf_cur.execute(f"DELETE FROM {table_name}")
+
+    # Insert data into Snowflake with sequence id
+    if rows:
+        for row in rows:
+            row = list(row)
+            # Special handling for expenses.receipt_blob
+            if table_name == "expenses":
+                idx = columns[1:].index("receipt_blob")
+                val = row[idx]
+                if isinstance(val, memoryview):
+                    row[idx] = val.tobytes().hex()
+                elif isinstance(val, bytes):
+                    row[idx] = val.hex()
+                elif val is None:
+                    row[idx] = None
+            sf_cur.execute(f"INSERT INTO {table_name} (id, {', '.join(columns[1:])}) VALUES ({seq_name}.NEXTVAL, {', '.join(['%s'] * len(columns[1:]))})", tuple(row))
+
+    pg_cur.close()
+    pg_conn.close()
+    sf_cur.close()
+    sf_conn.close()
 
 if __name__ == "__main__":
 	migrate_table("payment_details", ["id", "name", "amount", "date", "comments", "payment_type"])

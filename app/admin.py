@@ -198,10 +198,16 @@ def admin_tab(menu="Sponsorship Items"):
                         dt_naive = datetime.combine(date, time.min)
                         dt_cst = tz.localize(dt_naive)
                         date_cst = dt_cst.date()
-                        cursor.execute(
-                            "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
-                            (name, amount, date_cst, comments, payment_type)
-                        )
+                        if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                            cursor.execute(
+                                "INSERT INTO payment_details (id, name, amount, date, comments, payment_type) VALUES (payment_details_id_seq.NEXTVAL, %s, %s, %s, %s, %s)",
+                                (name, amount, date_cst, comments, payment_type)
+                            )
+                        else:
+                            cursor.execute(
+                                "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
+                                (name, amount, date_cst, comments, payment_type)
+                            )
                         conn.commit()
                         st.success("✅ Payment detail added!")
                         st.rerun()
@@ -304,8 +310,12 @@ def admin_tab(menu="Sponsorship Items"):
             new_lim = st.number_input("Limit", min_value=1, value=3)
             if st.form_submit_button("Add Item"):
                 try:
-                    cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)",
-                                   (new_name, new_amt, new_lim))
+                    if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                        cursor.execute("INSERT INTO sponsorship_items (id, item, amount, sponsor_limit) VALUES (sponsorship_items_id_seq.NEXTVAL, %s, %s, %s)",
+                                       (new_name, new_amt, new_lim))
+                    else:
+                        cursor.execute("INSERT INTO sponsorship_items (item, amount, sponsor_limit) VALUES (%s, %s, %s)",
+                                       (new_name, new_amt, new_lim))
                     conn.commit()
                     st.success("✅ New item added!")
                 except Exception as e:
@@ -556,7 +566,10 @@ def admin_tab(menu="Sponsorship Items"):
             new_email_val = st.text_input("New Notification Email")
             if st.form_submit_button("Add Notification Email"):
                 try:
-                    cursor.execute("INSERT INTO notification_emails (email) VALUES (%s)", (new_email_val.strip(),))
+                    if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                        cursor.execute("INSERT INTO notification_emails (id, email) VALUES (notification_emails_id_seq.NEXTVAL, %s)", (new_email_val.strip(),))
+                    else:
+                        cursor.execute("INSERT INTO notification_emails (email) VALUES (%s)", (new_email_val.strip(),))
                     conn.commit()
                     st.success("✅ New notification email added!")
                     st.rerun()

@@ -254,10 +254,16 @@ def events_tab():
                 st.error("Event title is required.")
             else:
                 try:
-                    cursor.execute(
-                        "INSERT INTO events (title, event_date, event_time, link, description) VALUES (%s, %s, %s, %s, %s)",
-                        (new_title, new_date, new_time, None, new_description)
-                    )
+                    if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                        cursor.execute(
+                            "INSERT INTO events (id, title, event_date, event_time, link, description) VALUES (events_id_seq.NEXTVAL, %s, %s, %s, %s, %s)",
+                            (new_title, new_date, new_time, None, new_description)
+                        )
+                    else:
+                        cursor.execute(
+                            "INSERT INTO events (title, event_date, event_time, link, description) VALUES (%s, %s, %s, %s, %s)",
+                            (new_title, new_date, new_time, None, new_description)
+                        )
                     conn.commit()
                     st.success("✅ Event added successfully!")
                     # Get admin full name for audit trail

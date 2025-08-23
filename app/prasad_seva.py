@@ -162,10 +162,16 @@ def prasad_seva_tab():
             st.error("Pooja Time is required.")
         else:
             for item in item_names:
-                cursor.execute(
-                    "INSERT INTO prasad_seva (seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (seva_type, ', '.join(names), item, num_people, apartment, seva_date, pooja_time, st.session_state.get('admin_full_name', 'User'), 'active')
-                )
+                if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                    cursor.execute(
+                        "INSERT INTO prasad_seva (id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status) VALUES (prasad_seva_id_seq.NEXTVAL, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (seva_type, ', '.join(names), item, num_people, apartment, seva_date, pooja_time, st.session_state.get('admin_full_name', 'User'), 'active')
+                    )
+                else:
+                    cursor.execute(
+                        "INSERT INTO prasad_seva (seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (seva_type, ', '.join(names), item, num_people, apartment, seva_date, pooja_time, st.session_state.get('admin_full_name', 'User'), 'active')
+                    )
             conn.commit()
             submitted_info = {
                 "Type": seva_type,

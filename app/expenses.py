@@ -140,7 +140,10 @@ def expenses_tab():
             elif uploaded_receipt is not None and (uploaded_receipt.size > 1 * 1024 * 1024 or uploaded_receipt.type not in ["image/jpeg", "image/png"]):
                 st.error("Invalid receipt file. Only JPG/PNG under 1MB allowed.")
             else:
-                cursor.execute("INSERT INTO expenses (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_bytes))
+                if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):  # crude check for Snowflake
+                    cursor.execute("INSERT INTO expenses (id, category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob, status) VALUES (expenses_id_seq.NEXTVAL, %s, %s, %s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_bytes))
+                else:
+                    cursor.execute("INSERT INTO expenses (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_bytes))
                 conn.commit()
                 # Fetch notification email recipients
                 cursor.execute("SELECT email FROM notification_emails")

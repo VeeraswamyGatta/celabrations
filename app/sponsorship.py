@@ -470,15 +470,27 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
                     contributed_amount = round(contributed_amount, 2)
                     for idx, item in enumerate(selected_items):
                         d = donation if idx == 0 else 0
-                        cursor.execute("""
-                            INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
+                        if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                            cursor.execute("""
+                                INSERT INTO sponsors (id, name, email, gothram, mobile, apartment, sponsorship, donation)
+                                VALUES (sponsors_id_seq.NEXTVAL, %s, %s, %s, %s, %s, %s, %s)
+                            """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """, (name_val, email, gothram, phone_fmt.strip(), apartment, item, d))
                     if not selected_items and donation > 0:
-                        cursor.execute("""
-                            INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
-                            VALUES (%s, %s, %s, %s, %s, NULL, %s)
-                        """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
+                        if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
+                            cursor.execute("""
+                                INSERT INTO sponsors (id, name, email, gothram, mobile, apartment, sponsorship, donation)
+                                VALUES (sponsors_id_seq.NEXTVAL, %s, %s, %s, %s, %s, NULL, %s)
+                            """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO sponsors (name, email, gothram, mobile, apartment, sponsorship, donation)
+                                VALUES (%s, %s, %s, %s, %s, NULL, %s)
+                            """, (name_val, email, gothram, phone_fmt.strip(), apartment, donation))
                     conn.commit()
                     submitted_data = {
                         "Name": name_val,
