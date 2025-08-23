@@ -383,12 +383,12 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
         if donor_rows_filtered:
             donor_table_html = f"""
 <div style='background:linear-gradient(90deg,#e3f2fd 60%,#fffde7 100%); border-radius:14px; box-shadow:0 2px 12px #e0e0e0; padding:18px 24px; margin-bottom:18px; border:2px solid #90caf9;'>
-    <div style='font-size:1.15em; font-weight:bold; color:#1976d2; margin-bottom:10px;'>🙏 Donors</div>
+    <div style='font-size:1.15em; font-weight:bold; color:#222; margin-bottom:10px;'>🙏 Donors</div>
     <table style='width:100%; border-collapse:collapse; font-size:1.05em;'>
         <thead>
             <tr style='background:#bbdefb;'>
-                <th style='padding:8px 12px; color:#1976d2; font-weight:600; border-bottom:2px solid #90caf9;'>Donor Name</th>
-                <th style='padding:8px 12px; color:#1976d2; font-weight:600; border-bottom:2px solid #90caf9;'>Amount</th>
+                <th style='padding:8px 12px; color:#222; font-weight:600; border-bottom:2px solid #90caf9;'>Donor Name</th>
+                <th style='padding:8px 12px; color:#222; font-weight:600; border-bottom:2px solid #90caf9;'>Amount</th>
             </tr>
         </thead>
         <tbody>

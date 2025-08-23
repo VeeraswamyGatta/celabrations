@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 from .db import get_connection
+import io
 
 def create_expenses_table():
     conn = get_connection()
@@ -15,13 +16,12 @@ def create_expenses_table():
             date DATE NOT NULL,
             spent_by TEXT NOT NULL,
             comments TEXT,
+            receipt_path TEXT,
+            receipt_blob BYTEA,
             status VARCHAR(10) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 create_expenses_table()
 
@@ -52,7 +52,7 @@ def expenses_tab():
 
     # Display Expenses Table
     st.markdown("### Expenses List")
-    cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments FROM expenses WHERE status='active' ORDER BY category, sub_category")
+    cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob FROM expenses WHERE status='active' ORDER BY category, sub_category")
     rows = cursor.fetchall()
     tabs = ["Expenses List"]
     is_admin = st.session_state.get("admin_logged_in", False)
@@ -61,54 +61,95 @@ def expenses_tab():
     tabs = st.tabs(tabs)
     with tabs[0]:
         if rows:
-            columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"] if is_admin else ["ID", "Category", "Sub Category", "Amount", "Date", "Comments"]
-            df = pd.DataFrame(rows, columns=["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments"])
-            # Icon mapping for each column
-            category_icons = {
-                "Decoration": "🎉",
-                "Snacks": "🍪",
-                "Flowers": "🌸",
-                "Prasad": "🍛",
-                "Other": "🛒"
-            }
-            def get_category_icon(cat):
-                return category_icons.get(cat, "🛒")
-            def get_subcat_icon(subcat):
-                if "food" in subcat.lower():
-                    return "🍽️"
-                elif "drink" in subcat.lower():
-                    return "🥤"
-                elif "flower" in subcat.lower():
-                    return "🌼"
-                elif "decoration" in subcat.lower():
-                    return "🎊"
-                else:
-                    return "🔖"
-            def get_amount_icon(amount):
-                return "💸" if amount > 0 else ""
-            def get_date_icon(date):
-                return "📅"
+            columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments", "Receipt", "Receipt Blob"]
+            df = pd.DataFrame(rows, columns=columns)
+            # Remove all icon logic and use plain text for table columns
             def format_comments(comments):
                 if not comments:
                     return ""
-                lines = [line.strip() for line in comments.split("\n") if line.strip()]
-                html_lines = []
-                for line in lines:
-                    parts = line.split("\t")
-                    html_lines.append("<span style='display:inline-block;margin-bottom:2px;'>📝 " + " &nbsp;|&nbsp; ".join(parts) + "</span>")
-                return "<br>".join(html_lines)
-            # Apply icons
-            df["Category"] = df["Category"].apply(lambda x: f"{get_category_icon(x)} {x}")
-            df["Sub Category"] = df["Sub Category"].apply(lambda x: f"{get_subcat_icon(x)} {x}")
-            df["Amount"] = df["Amount"].apply(lambda x: f"{get_amount_icon(x)} {x:.2f}")
-            df["Date"] = df["Date"].apply(lambda x: f"{get_date_icon(x)} {x}")
+                # Split by newline or pipe, keep each as a separate line
+                import re
+                lines = re.split(r'[\n|]+', comments)
+                html_lines = [f"<span style='display:block;margin-bottom:2px;'>{line.strip()}</span>" for line in lines if line.strip()]
+                return "<div style='line-height:1.5;'>" + "".join(html_lines) + "</div>"
             df["Comments"] = df["Comments"].apply(format_comments)
-            if not is_admin:
-                df_display = df.drop(columns=["ID", "Spent By"])
-            else:
-                df_display = df.drop(columns=["ID"])
-            df_display.index = range(1, len(df_display) + 1)
-            st.markdown(df_display.to_html(escape=False, index=True), unsafe_allow_html=True)
+            # Display each expense row with details and download button in Receipt column
+            st.markdown("""
+                <style>
+                .expense-table-container {
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 4px 24px rgba(109,76,65,0.10);
+                    padding: 24px 16px 16px 16px;
+                    margin-bottom: 24px;
+                }
+                .expense-header {
+                    background: linear-gradient(90deg, #FFECB3 0%, #FFE0B2 100%);
+                    border-bottom: 2px solid #6D4C41;
+                    font-weight: bold;
+                    color: #6D4C41;
+                    padding: 12px 0;
+                    border-radius: 8px 8px 0 0;
+                    font-size: 1.08em;
+                    letter-spacing: 0.5px;
+                }
+                .expense-row {
+                    border-bottom: 1px solid #e0e0e0;
+                    padding: 12px 0;
+                    border-radius: 0 0 8px 8px;
+                    box-shadow: 0 2px 8px rgba(109,76,65,0.04);
+                    transition: background 0.2s;
+                }
+                .expense-row.alt {
+                    background: #FFF8E1;
+                }
+                .expense-row:hover {
+                    background: #FFE0B2;
+                }
+                .expense-cell {
+                    padding: 12px 0;
+                    font-size: 1.01em;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            st.markdown("<div class='expense-table-container'>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>", unsafe_allow_html=True)
+            display_columns = ["Category", "Sub Category", "Amount", "Date", "Comments", "Receipt"]
+            header_cols = st.columns(len(display_columns))
+            for i, col in enumerate(display_columns):
+                header_cols[i].markdown(f"<div class='expense-header'>{col}</div>", unsafe_allow_html=True)
+            for idx, row in df.iterrows():
+                row_class = "expense-row alt" if idx % 2 == 1 else "expense-row"
+                cols = st.columns(len(display_columns))
+                for i, col in enumerate(display_columns):
+                    cell_html = "<div class='expense-cell {}'>".format(row_class)
+                    if col == "Receipt":
+                        receipt_name = row["Receipt"]
+                        receipt_blob = row["Receipt Blob"]
+                        if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
+                            data = receipt_blob
+                            if isinstance(data, memoryview):
+                                data = data.tobytes()
+                            cols[i].download_button(
+                                label="Download Receipt",
+                                data=data,
+                                file_name=receipt_name,
+                                mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
+                                key=f"download_{idx}"
+                            )
+                        else:
+                            cols[i].markdown(cell_html + "No Receipt</div>", unsafe_allow_html=True)
+                    else:
+                        val = row[col]
+                        if isinstance(val, bool) and val is False:
+                            cols[i].markdown(cell_html + "</div>", unsafe_allow_html=True)
+                        else:
+                            # Render comments as HTML, others as plain text
+                            if col == "Comments":
+                                cols[i].markdown(cell_html + val + "</div>", unsafe_allow_html=True)
+                            else:
+                                cols[i].markdown(cell_html + str(val) + "</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
         else:
             st.info("No expenses recorded yet.")
@@ -133,12 +174,27 @@ def expenses_tab():
         st.markdown("### ➕ Add Expense")
         cursor.execute("SELECT item FROM sponsorship_items")
         categories = [row[0] for row in cursor.fetchall()]
+        uploaded_receipt = st.file_uploader("Upload Receipt (JPG/PNG, max 1MB)", type=["jpg", "jpeg", "png"], key="add_expense_receipt")
+        receipt_path = None
+        receipt_bytes = None
+        receipt_filename = None
+        if uploaded_receipt is not None:
+            if uploaded_receipt.size > 1 * 1024 * 1024:
+                st.error("Receipt file size should not exceed 1 MB.")
+            elif uploaded_receipt.type not in ["image/jpeg", "image/png"]:
+                st.error("Only JPG and PNG files are allowed.")
+            else:
+                import uuid
+                ext = uploaded_receipt.name.split('.')[-1]
+                receipt_filename = f"receipt_{uuid.uuid4().hex}.{ext}"
+                receipt_bytes = uploaded_receipt.read()
+                receipt_path = receipt_filename
         category = st.selectbox("Category", categories, key="add_expense_category")
         sub_category = st.text_input("Sub Category", placeholder="e.g. Decoration, Snacks", key="add_expense_subcat")
         amount = st.number_input("Amount", min_value=0.0, format="%.2f", key="add_expense_amount")
         date = st.date_input("Date", value=datetime.date.today(), key="add_expense_date")
         spent_by = st.text_input("Spent By", placeholder="e.g. Name", key="add_expense_spentby")
-        comments = st.text_area("Comments", placeholder="Any additional details", key="add_expense_comments")
+        comments = st.text_area("Comments", value="", placeholder="Any additional details", key="add_expense_comments")
         if st.button("Add Expense", key="add_expense_btn"):
             if not category:
                 st.error("Category is required.")
@@ -148,10 +204,38 @@ def expenses_tab():
                 st.error("Amount must be greater than 0.")
             elif not spent_by.strip():
                 st.error("Spent By is required.")
+            elif uploaded_receipt is not None and (uploaded_receipt.size > 1 * 1024 * 1024 or uploaded_receipt.type not in ["image/jpeg", "image/png"]):
+                st.error("Invalid receipt file. Only JPG/PNG under 1MB allowed.")
             else:
-                cursor.execute("INSERT INTO expenses (category, sub_category, amount, date, spent_by, comments, status) VALUES (%s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments))
+                cursor.execute("INSERT INTO expenses (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_bytes))
                 conn.commit()
-                st.success("✅ Expense added!")
+                # Fetch notification email recipients
+                cursor.execute("SELECT email FROM notification_emails")
+                recipients = [row[0] for row in cursor.fetchall()]
+                # Prepare email subject and body
+                subject = f"New Expense Added: {category} - {sub_category}"
+                body = f"""
+<h3>New Expense Added</h3>
+<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+    <tr><th align='left'>Category</th><td>{category}</td></tr>
+    <tr><th align='left'>Sub Category</th><td>{sub_category}</td></tr>
+    <tr><th align='left'>Amount</th><td>{amount:.2f}</td></tr>
+    <tr><th align='left'>Date</th><td>{date}</td></tr>
+    <tr><th align='left'>Spent By</th><td>{spent_by}</td></tr>
+    <tr><th align='left'>Comments</th><td>{comments}</td></tr>
+</table>
+"""
+                # Send email with receipt attached if present
+                from app.email_utils import send_email
+                send_with_attachment = send_email(subject, body, recipients)
+                if receipt_bytes:
+                    mime_type = "image/jpeg" if receipt_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                    for recipient in recipients:
+                        send_with_attachment(recipient, subject, body, receipt_bytes, receipt_path, mime_type)
+                else:
+                    for recipient in recipients:
+                        send_with_attachment(recipient, subject, body)
+                st.success("✅ Expense added and notification email sent!")
                 st.rerun()
 
         # Move Edit/Delete Expense section after Add Expense
@@ -192,21 +276,63 @@ def expenses_tab():
                     plain_comments = plain_comments.replace("📝 ", "")
                     plain_comments = plain_comments.replace("&nbsp;|&nbsp;", " | ")
                     plain_comments = plain_comments.replace("&nbsp;", " ")
-                    # Add newline before each item if not present
-                    # This will add a newline before each item that starts with a word and ends with a dollar amount
                     plain_comments = re.sub(r"(\$[0-9,.]+)", r"\1\n", plain_comments)
-                    # Remove extra spaces and ensure each item is on its own line
                     plain_comments = re.sub(r"\n\s*", "\n", plain_comments)
                     plain_comments = plain_comments.strip()
                     new_comments = st.text_area("Comments", value=plain_comments)
+
+                    # Receipt management
+                    receipt_name = entry["Receipt"]
+                    receipt_blob = entry["Receipt Blob"]
+                    receipt_deleted = False
+                    new_receipt_bytes = None
+                    new_receipt_path = None
+                    if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
+                        st.markdown("<b>Current Receipt:</b>", unsafe_allow_html=True)
+                        data = receipt_blob
+                        if isinstance(data, memoryview):
+                            data = data.tobytes()
+                        st.download_button(
+                            label="Download Receipt",
+                            data=data,
+                            file_name=receipt_name,
+                            mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
+                            key=f"edit_download_{selected_id}"
+                        )
+                        if st.button("Delete Receipt", key=f"delete_receipt_{selected_id}"):
+                            cursor.execute("UPDATE expenses SET receipt_path=NULL, receipt_blob=NULL WHERE id=%s", (selected_id,))
+                            conn.commit()
+                            st.success("Receipt deleted. You can upload a new one below.")
+                            receipt_deleted = True
+                            st.rerun()
+                    else:
+                        st.info("No receipt uploaded yet. You can upload one below.")
+
+                    # Allow uploading new receipt if none exists or after deletion
+                    uploaded_new_receipt = st.file_uploader("Upload New Receipt (JPG/PNG, max 1MB)", type=["jpg", "jpeg", "png"], key=f"edit_upload_receipt_{selected_id}")
+                    if uploaded_new_receipt is not None:
+                        if uploaded_new_receipt.size > 1 * 1024 * 1024:
+                            st.error("Receipt file size should not exceed 1 MB.")
+                        elif uploaded_new_receipt.type not in ["image/jpeg", "image/png"]:
+                            st.error("Only JPG and PNG files are allowed.")
+                        else:
+                            import uuid
+                            ext = uploaded_new_receipt.name.split('.')[-1]
+                            new_receipt_path = f"receipt_{uuid.uuid4().hex}.{ext}"
+                            new_receipt_bytes = uploaded_new_receipt.read()
+
                     if st.button("Update Expense"):
-                        cursor.execute("UPDATE expenses SET category=%s, sub_category=%s, amount=%s, date=%s, spent_by=%s, comments=%s, status='active' WHERE id=%s", (new_category, new_sub_category, new_amount, new_date, new_spent_by, new_comments, selected_id))
+                        # Update expense with or without new receipt
+                        if new_receipt_bytes and new_receipt_path:
+                            cursor.execute("UPDATE expenses SET category=%s, sub_category=%s, amount=%s, date=%s, spent_by=%s, comments=%s, receipt_path=%s, receipt_blob=%s, status='active' WHERE id=%s", (new_category, new_sub_category, new_amount, new_date, new_spent_by, new_comments, new_receipt_path, new_receipt_bytes, selected_id))
+                        else:
+                            cursor.execute("UPDATE expenses SET category=%s, sub_category=%s, amount=%s, date=%s, spent_by=%s, comments=%s, status='active' WHERE id=%s", (new_category, new_sub_category, new_amount, new_date, new_spent_by, new_comments, selected_id))
                         conn.commit()
                         st.success("✅ Updated!")
                         st.rerun()
                 with delete_tab:
-                    entered_cat = st.text_input(f"Type the Category to confirm deletion (e.g. {entry['Category']})", key=f"delete_cat_{selected_id}")
-                    entered_subcat = st.text_input(f"Type the Sub Category to confirm deletion (e.g. {entry['Sub Category']})", key=f"delete_subcat_{selected_id}")
+                    entered_cat = st.text_input(f"Type the Category to confirm deletion ({entry['Category']})", key=f"delete_cat_{selected_id}")
+                    entered_subcat = st.text_input(f"Type the Sub Category to confirm deletion ({entry['Sub Category']})", key=f"delete_subcat_{selected_id}")
                     confirm_message = f"Type <b>{entry['Category']}</b> and <b>{entry['Sub Category']}</b> above and click Delete to confirm."
                     st.markdown(confirm_message, unsafe_allow_html=True)
                     if st.button("Delete Expense", key=f"delete_expense_{selected_id}"):
