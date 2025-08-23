@@ -1,25 +1,3 @@
-def get_sponsor_df(conn):
-    df = pd.read_sql("SELECT name, SUM(COALESCE(donation,0)) AS donation_sum FROM sponsors GROUP BY name", conn)
-    cursor2 = conn.cursor()
-    cursor2.execute("""
-        SELECT s.name, SUM(COALESCE(si.amount,0) / NULLIF(si.sponsor_limit,0))
-        FROM sponsors s
-        JOIN sponsorship_items si ON si.item = s.sponsorship
-        GROUP BY s.name
-    """)
-    sponsor_amt = {row[0]: float(row[1]) for row in cursor2.fetchall()}
-    if "name" in df.columns:
-        df["sponsorship_sum"] = df["name"].map(sponsor_amt).fillna(0).astype(float)
-    else:
-        df["sponsorship_sum"] = 0.0
-    if "donation_sum" in df.columns:
-        df["donation_sum"] = df["donation_sum"].astype(float)
-    else:
-        df["donation_sum"] = 0.0
-    df["total_amount"] = df["donation_sum"] + df["sponsorship_sum"]
-    cursor2.close()
-    return df
-import pandas as pd
 import streamlit as st
 TABLE_HEADER_STYLE = "background-color:#6A1B9A;color:#fff;text-transform:capitalize;"
 
@@ -43,59 +21,154 @@ import pandas as pd
 from .db import get_connection
 from .email_utils import send_email
 
-def admin_tab(menu="Sponsorship Items", switch_db_type="postgres"):
+def admin_tab(menu="Sponsorship Items"):
     st.session_state['active_tab'] = 'Admin'
-    from app import switch_db_type as global_db_type
-    conn = get_connection(global_db_type)
+    conn = get_connection()
     cursor = conn.cursor()
-    sponsor_df = get_sponsor_df(conn)
-    if "name" in sponsor_df.columns:
-        sponsor_names = sorted(sponsor_df["name"].tolist())
-    else:
-        sponsor_names = []
-    name_options = ["-- Select Name --"] + sponsor_names if sponsor_names else ["-- No Names Available --"]
-
-    # Payment Details Section
+    # Always show Payment Details by default and display its tabs first
     if menu == "Payment Details" or menu is None:
         st.markdown("<h2 style='color: #6A1B9A;'>💳 Payment Details</h2>", unsafe_allow_html=True)
+        # Fetch sponsor names and their total sponsored+donated amount
+        def get_sponsor_df():
+            df = pd.read_sql("SELECT name, SUM(COALESCE(donation,0)) AS donation_sum FROM sponsors GROUP BY name", conn)
+            cursor2 = conn.cursor()
+            # Calculate per-sponsor amount by dividing item amount by sponsor_limit
+            cursor2.execute("""
+                SELECT s.name, SUM(COALESCE(si.amount,0) / NULLIF(si.sponsor_limit,0))
+                FROM sponsors s
+                JOIN sponsorship_items si ON si.item = s.sponsorship
+                GROUP BY s.name
+            """)
+            sponsor_amt = {row[0]: float(row[1]) for row in cursor2.fetchall()}
+            df["sponsorship_sum"] = df["name"].map(sponsor_amt).fillna(0).astype(float)
+            df["donation_sum"] = df["donation_sum"].astype(float)
+            df["total_amount"] = df["donation_sum"] + df["sponsorship_sum"]
+            return df
+        sponsor_df = get_sponsor_df()
+        sponsor_names = sorted(sponsor_df["name"].tolist())
+        # Tabs for Received, Not Received, and Mismatch Records
         tab1, tab2, tab3 = st.tabs(["Received", "Not Received", "Mismatch Records"])
-        # Initialize session state for add_pay_selected_name
-        if 'add_pay_selected_name' not in st.session_state:
+
+        with tab1:
+            # Received: Payment details table
+            df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
+            if not df_pay.empty:
+                # Add filters for payment_type and comments
+                payment_types = ["All"] + sorted(df_pay["payment_type"].dropna().unique().tolist())
+                selected_type = st.selectbox("Filter by Payment Type", payment_types, index=0)
+                comment_filter = st.text_input("Filter by Comments (contains)", value="")
+
+                filtered_df = df_pay.copy()
+                if selected_type != "All":
+                    filtered_df = filtered_df[filtered_df["payment_type"] == selected_type]
+                if comment_filter:
+                    filtered_df = filtered_df[filtered_df["comments"].str.contains(comment_filter, case=False, na=False)]
+
+                # Hide 'id' column if present, and reset index for clean display
+                display_df = filtered_df.copy()
+                if 'id' in display_df.columns:
+                    display_df = display_df.drop(columns=["id"])
+                display_df = display_df.sort_values(by=["name"]).reset_index(drop=True)  # Sort by Name
+                display_df.index = display_df.index + 1  # Start index from 1
+                st.dataframe(display_df, use_container_width=True)
+                total_amount = display_df["amount"].sum()
+                paypal_total = display_df[display_df["payment_type"] == "PayPal"]["amount"].sum()
+                zelle_total = display_df[display_df["payment_type"] == "Zelle"]["amount"].sum()
+                if selected_type == "All":
+                    st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
+                elif selected_type == "PayPal":
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                elif selected_type == "Zelle":
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
+                # Send payment details to notification_emails
+                if st.button("Send Payment Details Email"):
+                    # Fetch notification emails
+                    cursor.execute("SELECT email FROM notification_emails")
+                    notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                    if notification_emails:
+                        # Build HTML table for email
+                        html_table = display_df.to_html(index=False, border=1, justify='center')
+                        try:
+                            send_email(
+                                "Ganesh Chaturthi Payment Details",
+                                f"""
+<b>Payment Details (Received)</b><br><br>
+{html_table}
+<br><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span>
+""",
+                                notification_emails
+                            )
+                            st.success(f"✅ Payment details sent to: {', '.join(notification_emails)}")
+                        except Exception as e:
+                            st.error(f"❌ Failed to send email: {e}")
+                    else:
+                        st.warning("No notification emails found.")
+            else:
+                st.info("No payment details found.")
+
+        with tab2:
+            # Not Received: Names/Amounts not in payment_details
+            df_pay = pd.read_sql("SELECT name FROM payment_details", conn)
+            paid_names = set(df_pay["name"].tolist())
+            not_received_df = sponsor_df[~sponsor_df["name"].isin(paid_names)][["name", "total_amount"]]
+            not_received_df = not_received_df.rename(columns={"name": "Name", "total_amount": "Amount"})
+            not_received_df = not_received_df.sort_values(by=["Name"]).reset_index(drop=True)  # Sort by Name
+            not_received_df.index = not_received_df.index + 1  # Start index from 1
+            # Hide 'id' column if present (shouldn't be, but for safety)
+            if 'id' in not_received_df.columns:
+                not_received_df = not_received_df.drop(columns=["id"])
+            st.dataframe(not_received_df, use_container_width=True)
+            st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Not Received:</b> <span style='color:#6A1B9A;'>${not_received_df['Amount'].sum():,.2f}</span></div>", unsafe_allow_html=True)
+
+        with tab3:
+            # Mismatch Records: Names in payment_details where amount does not match sponsorship total_amount
+            df_pay = pd.read_sql("SELECT name, amount FROM payment_details", conn)
+            mismatch_rows = []
+            for _, row in df_pay.iterrows():
+                name = row["name"]
+                sent_amount = float(row["amount"])  # from payment_details
+                sponsor_row = sponsor_df[sponsor_df["name"] == name]
+                if not sponsor_row.empty:
+                    submitted_amount = float(sponsor_row["total_amount"].values[0])  # from sponsor_df
+                    if abs(sent_amount - submitted_amount) > 0.01:
+                        mismatch_rows.append({"Name": name, "Submitted Amount": submitted_amount, "Sent Amount": sent_amount})
+            if mismatch_rows:
+                mismatch_df = pd.DataFrame(mismatch_rows)
+                mismatch_df = mismatch_df.sort_values(by=["Name"]).reset_index(drop=True)
+                mismatch_df.index = mismatch_df.index + 1
+                st.dataframe(mismatch_df, use_container_width=True)
+            else:
+                st.info("No mismatch records found.")
+
+        # Add Payment Detail section next
+        st.markdown("<h3 style='color: #6A1B9A;'>➕ Add Payment Detail</h3>", unsafe_allow_html=True)
+        # Only show names not present in payment_details for adding payment
+        df_pay_names = pd.read_sql("SELECT name FROM payment_details", conn)
+        paid_names_set = set(df_pay_names["name"].tolist())
+        unpaid_names = [n for n in sponsor_names if n not in paid_names_set]
+        # Add a placeholder for selectbox
+        name_options = ["-- Select Name --"] + unpaid_names if unpaid_names else ["-- No Names Available --"]
+        if 'add_pay_selected_name' not in st.session_state or st.session_state['add_pay_selected_name'] not in name_options:
             st.session_state['add_pay_selected_name'] = name_options[0]
-        with st.form("add_payment_detail_form"):
-            name = st.selectbox("Name", name_options, key="add_pay_selected_name")
-            payment_type = st.selectbox("Payment Type", ["PayPal", "Zelle"], key="add_pay_payment_type")
-            amount = st.number_input("Amount", min_value=0.0, format="%.2f")
-            comments = st.text_input("Comments")
-            submitted = st.form_submit_button("Submit Payment Detail")
-            if submitted:
-                # Only show name and payment_type inside the form after submit
-                st.write(f"Amount: **{amount}**")
-                st.write(f"Comments: **{comments}**")
-                st.success("Payment detail submitted!")
+        if 'add_pay_payment_type' not in st.session_state:
+            st.session_state['add_pay_payment_type'] = 'PayPal'
+        def update_amount():
+            name = st.session_state['add_pay_selected_name']
+            amt = float(sponsor_df[sponsor_df["name"] == name]["total_amount"].values[0]) if name in sponsor_names else 0.0
+            st.session_state['add_pay_amount'] = amt
 
-    # Notification Details Section
-    if menu == "Notification Details":
-        st.markdown("<h2 style='color: #6A1B9A;'>📧 Manage Notification Details</h2>", unsafe_allow_html=True)
-        cursor.execute("SELECT * FROM notification_emails")
-        notification_df = pd.DataFrame(cursor.fetchall(), columns=[desc[0] for desc in cursor.description])
-        st.dataframe(notification_df, use_container_width=True)
-        # Add more notification management features here as needed
+        # Only update amount if the name was changed by the user (not on every rerun)
+        if 'add_pay_last_selected_name' not in st.session_state:
+            st.session_state['add_pay_last_selected_name'] = st.session_state['add_pay_selected_name']
 
-    # Sponsorship Records Section
-    if menu == "Sponsorship Records":
-        st.markdown("<h2 style='color: #6A1B9A;'>🎗️ Sponsorship Records</h2>", unsafe_allow_html=True)
-        sponsor_df = get_sponsor_df(conn)
-        st.dataframe(sponsor_df, use_container_width=True)
-        # Add more sponsorship management features here as needed
+        name = st.selectbox("Name", name_options, key="add_pay_selected_name")
+        payment_type = st.selectbox("Payment Type", ["PayPal", "Zelle"], key="add_pay_payment_type")
 
-    # Sponsorship Items Section
-    if menu == "Sponsorship Items":
-        st.markdown("<h2 style='color: #6A1B9A;'>🛍️ Sponsorship Items</h2>", unsafe_allow_html=True)
-        cursor.execute("SELECT * FROM sponsorship_items")
-        items_df = pd.DataFrame(cursor.fetchall(), columns=[desc[0] for desc in cursor.description])
-        st.dataframe(items_df, use_container_width=True)
-        # Add more sponsorship item management features here as needed
+        if st.session_state['add_pay_last_selected_name'] != st.session_state['add_pay_selected_name']:
+            update_amount()
+            st.session_state['add_pay_last_selected_name'] = st.session_state['add_pay_selected_name']
 
         default_amount = st.session_state.get('add_pay_amount', 0.0)
         import pytz
@@ -103,7 +176,9 @@ def admin_tab(menu="Sponsorship Items", switch_db_type="postgres"):
         with st.form("add_payment_detail_form"):
             col1, col2 = st.columns(2)
             with col1:
+                st.write(f"Name: **{name}**")
                 amount = st.number_input("Amount (editable)", min_value=0.0, value=default_amount, step=1.0, format="%.2f", key="add_pay_amount_input")
+                st.write(f"Payment Type: **{payment_type}**")
             with col2:
                 date = st.date_input("Date", key="add_pay_date")
                 comments = st.text_input("Comments", key="add_pay_comments")
@@ -479,4 +554,3 @@ def admin_tab(menu="Sponsorship Items", switch_db_type="postgres"):
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Failed to add notification email: {e}")
-
