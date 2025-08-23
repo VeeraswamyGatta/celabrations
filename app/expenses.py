@@ -6,27 +6,44 @@ from .db import get_connection
 def create_expenses_table():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS expenses (
-            id SERIAL PRIMARY KEY,
-            category TEXT NOT NULL,
-            sub_category TEXT NOT NULL,
-            amount NUMERIC(10,2) NOT NULL,
-            date DATE NOT NULL,
-            spent_by TEXT NOT NULL,
-            comments TEXT,
-            status VARCHAR(10) DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    db_type = st.secrets.get("db_type", "postgres")
+    if db_type == "snowflake":
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER AUTOINCREMENT PRIMARY KEY,
+                category TEXT NOT NULL,
+                sub_category TEXT NOT NULL,
+                amount NUMERIC(10,2) NOT NULL,
+                date DATE NOT NULL,
+                spent_by TEXT NOT NULL,
+                comments TEXT,
+                status VARCHAR(10) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+    else:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS expenses (
+                id SERIAL PRIMARY KEY,
+                category TEXT NOT NULL,
+                sub_category TEXT NOT NULL,
+                amount NUMERIC(10,2) NOT NULL,
+                date DATE NOT NULL,
+                spent_by TEXT NOT NULL,
+                comments TEXT,
+                status VARCHAR(10) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
     conn.commit()
     cursor.close()
     conn.close()
 
 create_expenses_table()
 
-def expenses_tab():
-    conn = get_connection()
+def expenses_tab(switch_db_type="postgres"):
+    from app import switch_db_type as global_db_type
+    conn = get_connection(global_db_type)
     cursor = conn.cursor()
     # Calculate wallet and expenses totals
     cursor.execute("SELECT COALESCE(SUM(amount),0) FROM payment_details")

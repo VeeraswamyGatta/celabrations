@@ -5,7 +5,7 @@ from .db import get_connection
 from .email_utils import send_email
 
 # DB table creation
-CREATE_TABLE_SQL = '''
+CREATE_TABLE_SQL_POSTGRES = '''
 CREATE TABLE IF NOT EXISTS prasad_seva (
     id SERIAL PRIMARY KEY,
     seva_type VARCHAR(20),
@@ -21,11 +21,32 @@ CREATE TABLE IF NOT EXISTS prasad_seva (
 );
 '''
 
-def prasad_seva_tab():
+CREATE_TABLE_SQL_SNOWFLAKE = '''
+CREATE TABLE IF NOT EXISTS prasad_seva (
+    id INTEGER AUTOINCREMENT PRIMARY KEY,
+    seva_type VARCHAR(20),
+    names TEXT,
+    item_name VARCHAR(100),
+    num_people INT,
+    apartment VARCHAR(20),
+    seva_date DATE,
+    pooja_time VARCHAR(20),
+    created_by VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(10) DEFAULT 'active'
+);
+'''
+
+def prasad_seva_tab(switch_db_type="postgres"):
     st.session_state['active_tab'] = 'Prasad Seva'
-    conn = get_connection()
+    from app import switch_db_type as global_db_type
+    conn = get_connection(global_db_type)
     cursor = conn.cursor()
-    cursor.execute(CREATE_TABLE_SQL)
+    db_type = global_db_type
+    if db_type == "snowflake":
+        cursor.execute(CREATE_TABLE_SQL_SNOWFLAKE)
+    else:
+        cursor.execute(CREATE_TABLE_SQL_POSTGRES)
     conn.commit()
 
     # Removed repeated Prasad Seva heading for cleaner UI
@@ -208,7 +229,12 @@ def prasad_seva_tab():
                 # Names and Apartment Number are not editable
                 st.markdown(f"<b>Names:</b> <span style='font-size:16px;'>&#128100;</span> <b>{entry['Names']}</b>", unsafe_allow_html=True)
                 new_item = st.text_input("Item Name", value=entry["Item Name"])
-                new_num = st.number_input("How many people are you bringing item for?", min_value=1, value=int(entry["How many people are you bringing item for"]))
+                new_num = st.number_input(
+                    "How many people are you bringing item for?",
+                    min_value=1,
+                    value=int(entry["How many people are you bringing item for"]),
+                    key=f"edit_num_people_{selected_id}"
+                )
                 st.markdown(f"<b>Apartment Number:</b> <span style='font-size:16px;'>&#127968;</span> <b>{entry['Apartemnt Number']}</b>", unsafe_allow_html=True)
                 min_date = datetime.date(2025, 8, 26)
                 max_date = datetime.date(2025, 8, 30)

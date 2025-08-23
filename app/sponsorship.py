@@ -8,18 +8,19 @@ import altair as alt
 
 # Place all sponsorship and donation logic here
 
-def sponsorship_tab():
-    # Helper to get total approved expense amount
-    def get_total_expense_amount(conn):
-        try:
-            df = pd.read_sql("SELECT amount FROM expenses WHERE status = 'active'", conn)
-            if not df.empty:
-                return df["amount"].astype(float).sum()
-        except Exception:
-            pass
-        return 0.0
+def get_total_expense_amount(conn):
+    try:
+        df = pd.read_sql("SELECT amount FROM expenses WHERE status = 'active'", conn)
+        if not df.empty:
+            return df["amount"].astype(float).sum()
+    except Exception:
+        pass
+    return 0.0
+
+def sponsorship_tab(switch_db_type="postgres"):
     st.session_state['active_tab'] = 'Sponsorship'
-    conn = get_connection()
+    from app import switch_db_type as global_db_type
+    conn = get_connection(global_db_type)
     cursor = conn.cursor()
 
     # --- Combined PayPal + Zelle Total ---
@@ -392,7 +393,7 @@ Please fill in your details below to participate in the Ganesh Chaturthi celebra
             </tr>
         </thead>
         <tbody>
-            {''.join([f"<tr><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd;'>{row[0]}</td><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd; color:#388e3c; font-weight:bold;'>${row[1]}</td></tr>" for row in donor_rows_filtered])}
+            {''.join([f"<tr><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd; color:#222; font-weight:600;'>{row[0]}</td><td style='padding:8px 12px; border-bottom:1px solid #e3f2fd; color:#388e3c; font-weight:bold;'>${row[1]}</td></tr>" for row in donor_rows_filtered])}
         </tbody>
     </table>
 </div>

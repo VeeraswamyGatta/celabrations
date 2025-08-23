@@ -21,9 +21,10 @@ import datetime
 from .db import get_connection
 from .email_utils import send_email
 
-def events_tab():
+def events_tab(switch_db_type="postgres"):
     st.session_state['active_tab'] = 'Events'
-    conn = get_connection()
+    from app import switch_db_type as global_db_type
+    conn = get_connection(global_db_type)
     cursor = conn.cursor()
     st.markdown("""
     <div style='text-align:center;margin-bottom:18px;'>

@@ -27,7 +27,8 @@ def get_admin_password():
 
 # ---------- DB Setup ----------
 
-conn = get_connection()
+import app
+conn = get_connection(app.switch_db_type)
 create_tables(conn)
 from app.db import create_transfers_table
 create_transfers_table(conn)

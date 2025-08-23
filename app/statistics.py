@@ -24,6 +24,7 @@ import altair as alt
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from app.__init__ import switch_db_type as global_db_type
 
 def statistics_tab():
     # --- Combined PayPal + Zelle Total ---    
@@ -33,7 +34,7 @@ def statistics_tab():
     st.markdown("<h1 style='text-align: center; color: #1565C0;'>Sponsorship Statistics</h1>", unsafe_allow_html=True)
     # Removed audit trail full name requirement as requested
     # (Removed duplicate display of audit name in statistics page)
-    conn = get_connection()
+    conn = get_connection(global_db_type)
     cursor = conn.cursor()
 
     # Build sponsorship records with type and split item/donation, and show correct sponsored amount

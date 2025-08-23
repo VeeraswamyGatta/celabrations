@@ -84,8 +84,9 @@ def report_available_items(conn, recipients):
 def main():
     today = datetime.date.today()
     # Only send reports until August 31st, 2025
+    from app import switch_db_type as global_db_type
     if today <= datetime.date(2025, 8, 31):
-        conn = get_connection()
+        conn = get_connection(global_db_type)
         recipients = get_notification_emails(conn)
         if recipients:
             report_sponsored_records(conn, recipients)
