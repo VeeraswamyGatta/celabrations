@@ -112,44 +112,75 @@ def expenses_tab():
                 }
                 </style>
             """, unsafe_allow_html=True)
-            st.markdown("<div class='expense-table-container'>", unsafe_allow_html=True)
-            st.markdown("<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>", unsafe_allow_html=True)
-            display_columns = ["Category", "Sub Category", "Amount", "Date", "Comments", "Receipt"]
-            header_cols = st.columns(len(display_columns))
-            for i, col in enumerate(display_columns):
-                header_cols[i].markdown(f"<div class='expense-header'>{col}</div>", unsafe_allow_html=True)
+            # Removed empty expense-table-container div to eliminate extra space before table
+            # Removed duplicate Expenses Table heading
+            # Responsive HTML table for expenses
+            table_html = """
+<style>
+@media (max-width: 600px) {
+  .expense-table th, .expense-table td { font-size: 0.95em; padding: 8px 4px; }
+  .expense-table { font-size: 0.95em; }
+}
+.expense-table-container { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(109,76,65,0.10); padding: 24px 8px 16px 8px; margin-bottom: 24px; }
+.expense-table { width: 100%; border-collapse: collapse; }
+.expense-table th { background: linear-gradient(90deg, #FFECB3 0%, #FFE0B2 100%); border-bottom: 2px solid #6D4C41; color: #6D4C41; font-weight: bold; padding: 12px 6px; }
+.expense-table td { border-bottom: 1px solid #e0e0e0; padding: 12px 6px; }
+.expense-table tr:nth-child(even) { background: #FFF8E1; }
+.expense-table tr:hover { background: #FFE0B2; }
+</style>
+<div class='expense-table-container'>
+<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>
+<table class='expense-table'>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Sub Category</th>
+      <th>Amount</th>
+      <th>Date</th>
+      <th>Comments</th>
+      <th>Receipt</th>
+    </tr>
+  </thead>
+  <tbody>
+"""
             for idx, row in df.iterrows():
-                row_class = "expense-row alt" if idx % 2 == 1 else "expense-row"
-                cols = st.columns(len(display_columns))
-                for i, col in enumerate(display_columns):
-                    cell_html = "<div class='expense-cell {}'>".format(row_class)
-                    if col == "Receipt":
-                        receipt_name = row["Receipt"]
-                        receipt_blob = row["Receipt Blob"]
-                        if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
-                            data = receipt_blob
-                            if isinstance(data, memoryview):
-                                data = data.tobytes()
-                            cols[i].download_button(
-                                label="Download Receipt",
-                                data=data,
-                                file_name=receipt_name,
-                                mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
-                                key=f"download_{idx}"
-                            )
-                        else:
-                            cols[i].markdown(cell_html + "No Receipt</div>", unsafe_allow_html=True)
+                table_html += "<tr>"
+                for col in ["Category", "Sub Category", "Amount", "Date", "Comments"]:
+                    val = row[col]
+                    if col == "Comments":
+                        table_html += f"<td>{val}</td>"
                     else:
-                        val = row[col]
-                        if isinstance(val, bool) and val is False:
-                            cols[i].markdown(cell_html + "</div>", unsafe_allow_html=True)
-                        else:
-                            # Render comments as HTML, others as plain text
-                            if col == "Comments":
-                                cols[i].markdown(cell_html + val + "</div>", unsafe_allow_html=True)
-                            else:
-                                cols[i].markdown(cell_html + str(val) + "</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+                        table_html += f"<td>{val}</td>"
+                # Receipt column
+                receipt_name = row["Receipt"]
+                receipt_blob = row["Receipt Blob"]
+                if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
+                    data = receipt_blob
+                    if isinstance(data, memoryview):
+                        data = data.tobytes()
+                    # Generate a download link using Streamlit's download_button outside the table
+                    # Instead, use a placeholder and add download_button after rendering table
+                    table_html += f"<td><span id='download_{idx}'></span></td>"
+                else:
+                    table_html += "<td>No Receipt</td>"
+                table_html += "</tr>"
+            table_html += "</tbody></table></div>"
+            st.markdown(table_html, unsafe_allow_html=True)
+            # Add download buttons for receipts after table rendering
+            for idx, row in df.iterrows():
+                receipt_name = row["Receipt"]
+                receipt_blob = row["Receipt Blob"]
+                if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
+                    data = receipt_blob
+                    if isinstance(data, memoryview):
+                        data = data.tobytes()
+                    st.download_button(
+                        label="Download Receipt",
+                        data=data,
+                        file_name=receipt_name,
+                        mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
+                        key=f"download_{idx}"
+                    )
             st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
         else:
             st.info("No expenses recorded yet.")
