@@ -6,6 +6,17 @@ import io
 
 
 def expenses_tab():
+    # --- Clear Add Expense form fields if needed ---
+    if st.session_state.get("clear_expense_form", False):
+        st.session_state["add_expense_category"] = ""
+        st.session_state["add_expense_subcat"] = ""
+        st.session_state["add_expense_amount"] = 0.0
+        st.session_state["add_expense_date"] = datetime.date.today()
+        st.session_state["add_expense_spentby"] = ""
+        st.session_state["add_expense_comments"] = ""
+    # File uploader cannot be cleared programmatically; do not show info to user
+        st.session_state["clear_expense_form"] = False
+        st.rerun()
     conn = get_connection()
     cursor = conn.cursor()
     # Calculate wallet and expenses totals
@@ -175,6 +186,8 @@ def expenses_tab():
 </table>
 """
                 # Send email with receipt attached if present
+                st.session_state["expense_submission_in_progress"] = True
+                st.info("Add expense record is in progress...")
                 from app.email_utils import send_email, send_email_with_attachment
                 if receipt_bytes:
                     mime_type = "image/jpeg" if receipt_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
@@ -182,7 +195,10 @@ def expenses_tab():
                         send_email_with_attachment(subject, body, recipient, receipt_bytes, receipt_path, mime_type)
                 else:
                     send_email(subject, body, recipients)
+                st.session_state["expense_submission_in_progress"] = False
                 st.success("✅ Expense added and notification email sent!")
+                # Set flag to clear input fields on next run
+                st.session_state["clear_expense_form"] = True
                 st.rerun()
 
         # Move Edit/Delete Expense section after Add Expense
@@ -326,7 +342,9 @@ def expenses_tab():
                             <tr><th align='left'>Comments</th><td>{entry['Comments']}</td></tr>
                             </table>
                             """
-                            recipients = [st.secrets.get("admin_email", "")]
+                            # Use notification_emails table for recipients
+                            cursor.execute("SELECT email FROM notification_emails")
+                            recipients = [row[0] for row in cursor.fetchall()]
                             from app.email_utils import send_email
                             send_email(subject, body, recipients)
                             st.success("🗑️ Deleted and notification email sent!")
