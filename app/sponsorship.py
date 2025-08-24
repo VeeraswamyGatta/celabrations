@@ -13,6 +13,7 @@ def sponsorship_tab():
     def get_total_expense_amount(conn):
         try:
             df = pd.read_sql("SELECT amount FROM expenses WHERE status = 'active'", conn)
+            df.columns = [c.lower() for c in df.columns]
             if not df.empty:
                 return df["amount"].astype(float).sum()
         except Exception:
@@ -159,8 +160,8 @@ def sponsorship_tab():
             <span style='font-size:1.2em; margin-left:8px;'>📥</span>
         </div>
         <div style='flex:1; min-width:220px;'>
-            <span style='font-size:1.1em; color:#1565c0;'>Available Wallet</span><br>
-            <span style='font-size:1.2em; color:#388e3c; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
+            <span style='font-size:1.1em; color:#1565c0;' title="Total funds received minus all approved expenses. This is the remaining balance available for future expenses.">Available Wallet <span style='font-size:1.1em;' title="Total funds received minus all approved expenses. This is the remaining balance available for future expenses.">🛈</span></span><br>
+            <span style='font-size:1.2em; color:#388e3c; font-weight:bold;'>${float(combined_total):,.2f}</span> - <span style='font-size:1.2em; color:#d32f2f; font-weight:bold;'>${float(get_total_expense_amount(conn)):,.2f}</span> = <span style='font-size:1.2em; color:#1565c0; font-weight:bold;'>${float(combined_total) - float(get_total_expense_amount(conn)):,.2f}</span>
             <span style='font-size:1.2em; margin-left:8px;'>👛</span>
         </div>
     </div>
