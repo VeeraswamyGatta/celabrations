@@ -59,6 +59,10 @@ def expenses_tab():
         if not is_admin and "Spent By" in df.columns:
             drop_cols.append("Spent By")
         show_df = df.drop(drop_cols, axis=1)
+        # Order by ID and reset index for display
+        if "ID" in show_df.columns:
+            show_df = show_df.sort_values(by="ID").reset_index(drop=True)
+            show_df = show_df[["ID"] + [c for c in show_df.columns if c != "ID"]]
         show_df["Comments"] = show_df["Comments"].apply(lambda x: "  \n".join([str(line) for line in x if str(line).strip()]) if isinstance(x, list) else str(x))
         show_df.index = show_df.index + 1
         st.dataframe(show_df, use_container_width=True)
@@ -67,25 +71,31 @@ def expenses_tab():
             st.info("No expenses recorded yet.")
     # Receipts tab
     with tab_objects[1]:
-        for idx, row in df.iterrows():
+        # Order receipts by ID
+        receipts_df = df.sort_values(by="ID")
+        for idx, row in receipts_df.iterrows():
             receipt_name = row["Receipt"]
             receipt_blob = row["Receipt Blob"]
+            is_admin = st.session_state.get("admin_logged_in", False)
             if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
                 data = receipt_blob
                 if isinstance(data, memoryview):
                     data = data.tobytes()
                 elif isinstance(data, bytearray):
                     data = bytes(data)
-                label_text = f"Download Receipt: ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}"
-                st.download_button(
-                    label=label_text,
-                    data=data,
-                    file_name=receipt_name,
-                    mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
-                    key=f"download_{idx}"
-                )
+                label_text = f"View Receipt: ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}"
+                if is_admin and "Spent By" in row:
+                    label_text += f" | Spent By {row['Spent By']}"
+                if st.button(label_text, key=f"view_receipt_{row['ID']}"):
+                    import base64
+                    img_type = "jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "png"
+                    img_base64 = base64.b64encode(data).decode("utf-8")
+                    st.markdown(f"<div style='margin-bottom:18px;'><img src='data:image/{img_type};base64,{img_base64}' style='max-width:320px;max-height:320px;border-radius:12px;border:2px solid #eee;box-shadow:0 2px 8px #ccc;margin-top:8px;'/></div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<span style='color:#888;'>No Receipt for ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}</span>", unsafe_allow_html=True)
+                label_text = f"No Receipt for ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}"
+                if is_admin and "Spent By" in row:
+                    label_text += f" | Spent By {row['Spent By']}"
+                st.markdown(f"<span style='color:#888;'>{label_text}</span>", unsafe_allow_html=True)
     # Expense Summary by Person tab (admin only)
     if is_admin and len(tab_objects) > 2:
         with tab_objects[2]:

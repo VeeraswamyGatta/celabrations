@@ -50,81 +50,65 @@ def events_tab():
         if events:
             df_events = pd.DataFrame(events, columns=["ID", "Event Name", "Date", "Time", "Link", "Description"])
             display_df = df_events.drop(columns=["ID", "Link"])
-            # Split events into upcoming and past
-            today = datetime.date.today()
+            import pytz
+            cst = pytz.timezone('US/Central')
+            today_cst = datetime.datetime.now(cst).date()
             display_df['Date_obj'] = pd.to_datetime(display_df['Date'], errors='coerce').dt.date
-            upcoming_df = display_df[display_df['Date_obj'] >= today]
-            past_df = display_df[display_df['Date_obj'] < today]
-            # Upcoming events grid
-            if not upcoming_df.empty:
-                st.markdown("""
-                <style>
-                .event-card-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                    gap: 24px;
-                    margin-top: 12px;
-                }
-                .event-card {
-                    background: linear-gradient(120deg,#fffde7 60%,#e3f2fd 100%);
-                    border-radius: 18px;
-                    box-shadow: 0 4px 18px #e0e0e0;
-                    padding: 24px 22px 18px 22px;
-                    border: 2px solid #90caf9;
-                    position: relative;
-                    transition: box-shadow 0.2s;
-                }
-                .event-card:hover {
-                    box-shadow: 0 8px 32px #90caf9;
-                    border-color: #388e3c;
-                }
-                .event-title {
-                    font-size: 1.35em;
-                    font-weight: 700;
-                    color: #1976d2;
-                    margin-bottom: 6px;
-                    letter-spacing: 0.5px;
-                }
-                .event-date {
-                    font-size: 1.08em;
-                    color: #388e3c;
-                    font-weight: 600;
-                    margin-bottom: 2px;
-                }
-                .event-time {
-                    font-size: 1em;
-                    color: #1565c0;
-                    margin-bottom: 8px;
-                }
-                .event-desc {
-                    font-size: 1em;
-                    color: #333;
-                    margin-bottom: 0;
-                }
-                </style>
-                <div class='event-card-grid'>
-                """, unsafe_allow_html=True)
-                for _, row in upcoming_df.iterrows():
-                    st.markdown(f"""
-                    <div class='event-card'>
-                        <div class='event-title'>{row['Event Name']}</div>
-                        <div class='event-date'>📅 {row['Date']}</div>
-                        <div class='event-time'>⏰ {row['Time']}</div>
-                        <div class='event-desc'>{row['Description']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info("No upcoming events.")
-            # Collapsible section for past events
-            if not past_df.empty:
-                with st.expander("Show Past Events"): 
+            upcoming_df = display_df[display_df['Date_obj'] >= today_cst]
+            past_df = display_df[display_df['Date_obj'] < today_cst]
+            tab1, tab2 = st.tabs(["Active Events", "Past Events"])
+            with tab1:
+                if not upcoming_df.empty:
                     st.markdown("""
+                    <style>
+                    .event-card-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                        gap: 24px;
+                        margin-top: 12px;
+                    }
+                    .event-card {
+                        background: linear-gradient(120deg,#fffde7 60%,#e3f2fd 100%);
+                        border-radius: 18px;
+                        box-shadow: 0 4px 18px #e0e0e0;
+                        padding: 24px 22px 18px 22px;
+                        border: 2px solid #90caf9;
+                        position: relative;
+                        transition: box-shadow 0.2s;
+                    }
+                    .event-card:hover {
+                        box-shadow: 0 8px 32px #90caf9;
+                        border-color: #388e3c;
+                    }
+                    .event-title {
+                        font-size: 1.35em;
+                        font-weight: 700;
+                        color: #1976d2;
+                        margin-bottom: 6px;
+                        letter-spacing: 0.5px;
+                    }
+                    .event-date {
+                        font-size: 1.08em;
+                        color: #388e3c;
+                        font-weight: 600;
+                        margin-bottom: 2px;
+                    }
+                    .event-time {
+                        font-size: 1em;
+                        color: #1565c0;
+                        margin-bottom: 8px;
+                    }
+                    .event-desc {
+                        font-size: 1em;
+                        color: #333;
+                        margin-bottom: 0;
+                    }
+                    </style>
                     <div class='event-card-grid'>
                     """, unsafe_allow_html=True)
-                    for _, row in past_df.iterrows():
+                    for _, row in upcoming_df.iterrows():
                         st.markdown(f"""
-                        <div class='event-card' style='opacity:0.85;'>
+                        <div class='event-card'>
                             <div class='event-title'>{row['Event Name']}</div>
                             <div class='event-date'>📅 {row['Date']}</div>
                             <div class='event-time'>⏰ {row['Time']}</div>
@@ -132,6 +116,70 @@ def events_tab():
                         </div>
                         """, unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.info("No active events.")
+            with tab2:
+                if not past_df.empty:
+                    st.markdown("""
+                    <style>
+                    .event-card-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                        gap: 24px;
+                        margin-top: 12px;
+                    }
+                    .event-card {
+                        background: linear-gradient(120deg,#fffde7 60%,#e3f2fd 100%);
+                        border-radius: 18px;
+                        box-shadow: 0 4px 18px #e0e0e0;
+                        padding: 24px 22px 18px 22px;
+                        border: 2px solid #90caf9;
+                        position: relative;
+                        transition: box-shadow 0.2s;
+                        opacity:0.85;
+                    }
+                    .event-card:hover {
+                        box-shadow: 0 8px 32px #90caf9;
+                        border-color: #388e3c;
+                    }
+                    .event-title {
+                        font-size: 1.35em;
+                        font-weight: 700;
+                        color: #1976d2;
+                        margin-bottom: 6px;
+                        letter-spacing: 0.5px;
+                    }
+                    .event-date {
+                        font-size: 1.08em;
+                        color: #388e3c;
+                        font-weight: 600;
+                        margin-bottom: 2px;
+                    }
+                    .event-time {
+                        font-size: 1em;
+                        color: #1565c0;
+                        margin-bottom: 8px;
+                    }
+                    .event-desc {
+                        font-size: 1em;
+                        color: #333;
+                        margin-bottom: 0;
+                    }
+                    </style>
+                    <div class='event-card-grid'>
+                    """, unsafe_allow_html=True)
+                    for _, row in past_df.iterrows():
+                        st.markdown(f"""
+                        <div class='event-card'>
+                            <div class='event-title'>{row['Event Name']}</div>
+                            <div class='event-date'>📅 {row['Date']}</div>
+                            <div class='event-time'>⏰ {row['Time']}</div>
+                            <div class='event-desc'>{row['Description']}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.info("No past events.")
         else:
             st.info("No events added yet.")
         # Only show admin login prompt if not logged in as user
