@@ -30,78 +30,77 @@ def expenses_tab():
     """, unsafe_allow_html=True)
     st.markdown("<h1 style='text-align: center; color: #6D4C41;'>Expenses</h1>", unsafe_allow_html=True)
 
-    # Display Expenses Table
-    st.markdown("### Expenses List")
+    # Fetch expenses data
+    st.markdown("### Expenses")
     cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob FROM expenses WHERE status='active' ORDER BY category, sub_category")
     rows = cursor.fetchall()
-    tabs = ["Expenses List"]
+    columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments", "Receipt", "Receipt Blob"]
+    df = pd.DataFrame(rows, columns=columns)
+    def format_comments(comments):
+        if not comments:
+            return ""
+        import re
+        # Split comments by newlines or pipes, keep each line separate
+        lines = re.split(r'[\n|]+', comments)
+        return lines
+    df["Comments"] = df["Comments"].apply(format_comments)
+
+    # Tabs for Expenses List, Receipts, and Expense Summary
+    # Determine tabs to show based on user role
+    tabs = ["Expenses List", "Receipts"]
     is_admin = st.session_state.get("admin_logged_in", False)
     if is_admin:
         tabs.append("Expense Summary by Person")
-    tabs = st.tabs(tabs)
-    with tabs[0]:
-        if rows:
-            columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments", "Receipt", "Receipt Blob"]
-            df = pd.DataFrame(rows, columns=columns)
-            def format_comments(comments):
-                if not comments:
-                    return ""
-                import re
-                lines = re.split(r'[\n|]+', comments)
-                # Return as HTML with <br> for each line
-                return "<br>".join([line.strip() for line in lines if line.strip()])
-            df["Comments"] = df["Comments"].apply(format_comments)
-            st.markdown("<h3 style='color:#6D4C41;margin-bottom:0.5em;'>Expenses Table</h3>", unsafe_allow_html=True)
-            # Render table using Streamlit columns for each row
-            header_cols = st.columns([2,2,2,2,3,2])
-            headers = ["Category", "Sub Category", "Amount", "Date", "Comments", "Receipt"]
-            for col, header in zip(header_cols, headers):
-                col.markdown(f"<b>{header}</b>", unsafe_allow_html=True)
-            for idx, row in df.iterrows():
-                cols = st.columns([2,2,2,2,3,2])
-                cols[0].markdown(row["Category"])
-                cols[1].markdown(row["Sub Category"])
-                cols[2].markdown(f"{row['Amount']:.2f}")
-                cols[3].markdown(str(row["Date"]))
-                cols[4].markdown(row["Comments"], unsafe_allow_html=True)
-                receipt_name = row["Receipt"]
-                receipt_blob = row["Receipt Blob"]
-                if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
-                    data = receipt_blob
-                    if isinstance(data, memoryview):
-                        data = data.tobytes()
-                    elif isinstance(data, bytearray):
-                        data = bytes(data)
-                    cols[5].download_button(
-                        label="Download Receipt",
-                        data=data,
-                        file_name=receipt_name,
-                        mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
-                        key=f"download_{idx}"
-                    )
-                else:
-                    cols[5].markdown("No Receipt")
-            st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{total_expenses:.2f}</span></div>", unsafe_allow_html=True)
-        else:
+    tab_objects = st.tabs(tabs)
+    # Expenses List tab
+    with tab_objects[0]:
+        # Hide 'Spent By' column for non-admin users
+        drop_cols = ["Receipt Blob", "Receipt"]
+        if not is_admin and "Spent By" in df.columns:
+            drop_cols.append("Spent By")
+        show_df = df.drop(drop_cols, axis=1)
+        show_df["Comments"] = show_df["Comments"].apply(lambda x: "  \n".join([str(line) for line in x if str(line).strip()]) if isinstance(x, list) else str(x))
+        st.dataframe(show_df, use_container_width=True)
+        st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{df['Amount'].sum():.2f}</span></div>", unsafe_allow_html=True)
+        if not len(df):
             st.info("No expenses recorded yet.")
-    if is_admin and len(tabs) > 1:
-        with tabs[1]:
-            # Expense summary by person
+    # Receipts tab
+    with tab_objects[1]:
+        for idx, row in df.iterrows():
+            receipt_name = row["Receipt"]
+            receipt_blob = row["Receipt Blob"]
+            if isinstance(receipt_name, str) and receipt_name.strip() and receipt_blob:
+                data = receipt_blob
+                if isinstance(data, memoryview):
+                    data = data.tobytes()
+                elif isinstance(data, bytearray):
+                    data = bytes(data)
+                st.download_button(
+                    label=f"Download Receipt for {row['Category']} ({row['Date']})",
+                    data=data,
+                    file_name=receipt_name,
+                    mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
+                    key=f"download_{idx}"
+                )
+            else:
+                st.markdown(f"<span style='color:#888;'>No Receipt for {row['Category']} ({row['Date']})</span>", unsafe_allow_html=True)
+    # Expense Summary by Person tab (admin only)
+    if is_admin and len(tab_objects) > 2:
+        with tab_objects[2]:
             cursor.execute("SELECT spent_by, SUM(amount) FROM expenses WHERE status='active' GROUP BY spent_by ORDER BY SUM(amount) DESC")
             summary_rows = cursor.fetchall()
             if summary_rows:
                 summary_df = pd.DataFrame(summary_rows, columns=["Name", "Total Amount"])
-                # Calculate total from raw summary_rows
                 total_summary_amount = sum([row[1] for row in summary_rows if row[1] is not None])
                 summary_df["Total Amount"] = summary_df["Total Amount"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;'>{x:.2f}</span>")
-                st.markdown("<h4 style='color:#6D4C41;'>Expense Summary by Person</h4>", unsafe_allow_html=True)
                 st.markdown(summary_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
                 st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Amount: <span style='color:#6D4C41'>{total_summary_amount:.2f}</span></div>", unsafe_allow_html=True)
             else:
                 st.info("No expense summary available yet.")
+    # ...existing code...
 
     # Add Expense Form (admin only)
-    if is_admin:
+    if st.session_state.get('admin_logged_in', False):
         st.markdown("### ➕ Add Expense")
         cursor.execute("SELECT item FROM sponsorship_items")
         categories = [row[0] for row in cursor.fetchall()]
@@ -208,6 +207,8 @@ def expenses_tab():
                     # Show plain text comments in edit form
                     import re
                     plain_comments = entry["Comments"]
+                    if isinstance(plain_comments, list):
+                        plain_comments = "\n".join([str(line) for line in plain_comments if str(line).strip()])
                     plain_comments = re.sub(r"<[^>]+>", "", plain_comments)
                     plain_comments = plain_comments.replace("📝 ", "")
                     plain_comments = plain_comments.replace("&nbsp;|&nbsp;", " | ")
