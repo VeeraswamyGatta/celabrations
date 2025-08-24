@@ -60,6 +60,7 @@ def expenses_tab():
             drop_cols.append("Spent By")
         show_df = df.drop(drop_cols, axis=1)
         show_df["Comments"] = show_df["Comments"].apply(lambda x: "  \n".join([str(line) for line in x if str(line).strip()]) if isinstance(x, list) else str(x))
+        show_df.index = show_df.index + 1
         st.dataframe(show_df, use_container_width=True)
         st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Expenses: <span style='color:#6D4C41'>{df['Amount'].sum():.2f}</span></div>", unsafe_allow_html=True)
         if not len(df):
@@ -75,15 +76,16 @@ def expenses_tab():
                     data = data.tobytes()
                 elif isinstance(data, bytearray):
                     data = bytes(data)
+                label_text = f"Download Receipt: ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}"
                 st.download_button(
-                    label=f"Download Receipt for {row['Category']} ({row['Date']})",
+                    label=label_text,
                     data=data,
                     file_name=receipt_name,
                     mime="image/jpeg" if receipt_name.lower().endswith((".jpg", ".jpeg")) else "image/png",
                     key=f"download_{idx}"
                 )
             else:
-                st.markdown(f"<span style='color:#888;'>No Receipt for {row['Category']} ({row['Date']})</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='color:#888;'>No Receipt for ID {row['ID']} | Amount {row['Amount']} | Date {row['Date']}</span>", unsafe_allow_html=True)
     # Expense Summary by Person tab (admin only)
     if is_admin and len(tab_objects) > 2:
         with tab_objects[2]:
@@ -136,8 +138,8 @@ def expenses_tab():
                 st.error("Amount must be greater than 0.")
             elif not spent_by.strip():
                 st.error("Spent By is required.")
-            elif uploaded_receipt is not None and (uploaded_receipt.size > 1 * 1024 * 1024 or uploaded_receipt.type not in ["image/jpeg", "image/png"]):
-                st.error("Invalid receipt file. Only JPG/PNG under 1MB allowed.")
+            elif uploaded_receipt is not None and (uploaded_receipt.size > 10 * 1024 * 1024 or uploaded_receipt.type not in ["image/jpeg", "image/png"]):
+                st.error("Invalid receipt file. Only JPG/PNG under 10MB allowed.")
             else:
                 if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):  # crude check for Snowflake
                     cursor.execute("INSERT INTO expenses (id, category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob, status) VALUES (expenses_id_seq.NEXTVAL, %s, %s, %s, %s, %s, %s, %s, %s, 'active')", (category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_bytes))
@@ -161,15 +163,13 @@ def expenses_tab():
 </table>
 """
                 # Send email with receipt attached if present
-                from app.email_utils import send_email
-                send_with_attachment = send_email(subject, body, recipients)
+                from app.email_utils import send_email, send_email_with_attachment
                 if receipt_bytes:
                     mime_type = "image/jpeg" if receipt_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
                     for recipient in recipients:
-                        send_with_attachment(recipient, subject, body, receipt_bytes, receipt_path, mime_type)
+                        send_email_with_attachment(subject, body, recipient, receipt_bytes, receipt_path, mime_type)
                 else:
-                    for recipient in recipients:
-                        send_with_attachment(recipient, subject, body)
+                    send_email(subject, body, recipients)
                 st.success("✅ Expense added and notification email sent!")
                 st.rerun()
 
