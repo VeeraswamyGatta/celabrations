@@ -181,6 +181,8 @@ def expenses_tab():
             categories = []
             cursor.execute("SELECT item FROM sponsorship_items")
             categories = [row[0] for row in cursor.fetchall()]
+            if "Miscellaneous" not in categories:
+                categories.append("Miscellaneous")
             expense_options = ["Choose an item"] + [f"{df[df['ID']==x]['Category'].values[0]} - {df[df['ID']==x]['Sub Category'].values[0]}" for x in df["ID"].tolist()]
             selected_idx = st.selectbox("Select Expense to Edit/Delete", range(len(expense_options)), format_func=lambda i: expense_options[i])
             if selected_idx == 0:
