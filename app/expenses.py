@@ -106,6 +106,8 @@ def expenses_tab():
         st.markdown("### ➕ Add Expense")
         cursor.execute("SELECT item FROM sponsorship_items")
         categories = [row[0] for row in cursor.fetchall()]
+        if "Miscellaneous" not in categories:
+            categories.append("Miscellaneous")
         MAX_RECEIPT_SIZE_MB = 10
         MAX_RECEIPT_SIZE_BYTES = MAX_RECEIPT_SIZE_MB * 1024 * 1024
         uploaded_receipt = st.file_uploader(f"Upload Receipt (JPG/PNG, max {MAX_RECEIPT_SIZE_MB}MB)", type=["jpg", "jpeg", "png"], key="add_expense_receipt")
