@@ -281,7 +281,28 @@ def expenses_tab():
                         else:
                             cursor.execute("UPDATE expenses SET category=%s, sub_category=%s, amount=%s, date=%s, spent_by=%s, comments=%s, status='active' WHERE id=%s", (new_category, new_sub_category, new_amount, new_date, new_spent_by, new_comments, selected_id))
                         conn.commit()
-                        st.success("✅ Updated!")
+                        # Send email notification for edit
+                        subject = f"Expense Edited: {new_category} - {new_sub_category}"
+                        body = f"""
+                        <b>Expense Edited</b><br><br>
+                        <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+                        <tr><th align='left'>Category</th><td>{new_category}</td></tr>
+                        <tr><th align='left'>Sub Category</th><td>{new_sub_category}</td></tr>
+                        <tr><th align='left'>Amount</th><td>{new_amount:.2f}</td></tr>
+                        <tr><th align='left'>Date</th><td>{new_date}</td></tr>
+                        <tr><th align='left'>Spent By</th><td>{new_spent_by}</td></tr>
+                        <tr><th align='left'>Comments</th><td>{new_comments}</td></tr>
+                        </table>
+                        """
+                        recipients = [st.secrets.get("admin_email", "")]
+                        if new_receipt_bytes and new_receipt_path:
+                            mime_type = "image/jpeg" if new_receipt_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                            from app.email_utils import send_email_with_attachment
+                            send_email_with_attachment(subject, body, recipients[0], new_receipt_bytes, new_receipt_path, mime_type)
+                        else:
+                            from app.email_utils import send_email
+                            send_email(subject, body, recipients)
+                        st.success("✅ Updated and notification email sent!")
                         st.rerun()
                 with delete_tab:
                     entered_cat = st.text_input(f"Type the Category to confirm deletion ({entry['Category']})", key=f"delete_cat_{selected_id}")
@@ -292,7 +313,23 @@ def expenses_tab():
                         if entered_cat.strip() == entry['Category'] and entered_subcat.strip() == entry['Sub Category']:
                             cursor.execute("UPDATE expenses SET status='inactive' WHERE id=%s", (selected_id,))
                             conn.commit()
-                            st.success("🗑️ Deleted!")
+                            # Send email notification for delete
+                            subject = f"Expense Deleted: {entry['Category']} - {entry['Sub Category']}"
+                            body = f"""
+                            <b>Expense Deleted</b><br><br>
+                            <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+                            <tr><th align='left'>Category</th><td>{entry['Category']}</td></tr>
+                            <tr><th align='left'>Sub Category</th><td>{entry['Sub Category']}</td></tr>
+                            <tr><th align='left'>Amount</th><td>{entry['Amount']:.2f}</td></tr>
+                            <tr><th align='left'>Date</th><td>{entry['Date']}</td></tr>
+                            <tr><th align='left'>Spent By</th><td>{entry['Spent By']}</td></tr>
+                            <tr><th align='left'>Comments</th><td>{entry['Comments']}</td></tr>
+                            </table>
+                            """
+                            recipients = [st.secrets.get("admin_email", "")]
+                            from app.email_utils import send_email
+                            send_email(subject, body, recipients)
+                            st.success("🗑️ Deleted and notification email sent!")
                             st.rerun()
                         else:
                             st.warning(f"Please type the exact Category '{entry['Category']}' and Sub Category '{entry['Sub Category']}' to confirm deletion.")
