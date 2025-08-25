@@ -319,101 +319,102 @@ def events_tab():
                         conn.rollback()
                         st.error(f"❌ Failed to add event: {e}")
 
-        if events:
-            selected_event_id = st.selectbox(
-                "Select Event to Edit/Delete",
-                df_events["ID"].tolist(),
-                format_func=lambda x: df_events[df_events["ID"] == x]["Event Name"].values[0],
-                key="select_event_edit_delete_bottom"
-            )
+        if st.session_state.get('admin_logged_in', False):
+            if events:
+                selected_event_id = st.selectbox(
+                    "Select Event to Edit/Delete",
+                    df_events["ID"].tolist(),
+                    format_func=lambda x: df_events[df_events["ID"] == x]["Event Name"].values[0],
+                    key="select_event_edit_delete_bottom"
+                )
 
-            if selected_event_id:
-                event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
-                tab1, tab2 = st.tabs(["Edit Event", "Delete Event"])
+                if selected_event_id:
+                    event_row = df_events[df_events["ID"] == selected_event_id].iloc[0]
+                    tab1, tab2 = st.tabs(["Edit Event", "Delete Event"])
 
-                with tab1:
-                    edited_title = st.text_input("Edit Event Title", value=event_row["Event Name"], key="edit_event_title_bottom")
-                    edited_date = st.date_input(
-                        "Edit Event Date",
-                        value=pd.to_datetime(event_row["Date"]).date() if pd.notna(event_row["Date"]) else datetime.date.today(),
-                        key="edit_event_date_bottom"
-                    )
-                    if pd.notna(event_row["Time"]):
-                        if isinstance(event_row["Time"], datetime.time):
-                            default_time = event_row["Time"]
+                    with tab1:
+                        edited_title = st.text_input("Edit Event Title", value=event_row["Event Name"], key="edit_event_title_bottom")
+                        edited_date = st.date_input(
+                            "Edit Event Date",
+                            value=pd.to_datetime(event_row["Date"]).date() if pd.notna(event_row["Date"]) else datetime.date.today(),
+                            key="edit_event_date_bottom"
+                        )
+                        if pd.notna(event_row["Time"]):
+                            if isinstance(event_row["Time"], datetime.time):
+                                default_time = event_row["Time"]
+                            else:
+                                default_time = pd.to_datetime(event_row["Time"]).time()
                         else:
-                            default_time = pd.to_datetime(event_row["Time"]).time()
-                    else:
-                        default_time = datetime.time(0,0)
-                    edited_time = st.time_input("Edit Event Time", value=default_time, key="edit_event_time_bottom")
-                    edited_description = st.text_area("Edit Description (optional)", value=event_row["Description"] if pd.notna(event_row["Description"]) else "", key="edit_event_description_bottom")
-                    if st.button("Update Event", key="update_event_bottom"):
-                        if not edited_title.strip():
-                            st.error("Event title is required.")
-                        else:
+                            default_time = datetime.time(0,0)
+                        edited_time = st.time_input("Edit Event Time", value=default_time, key="edit_event_time_bottom")
+                        edited_description = st.text_area("Edit Description (optional)", value=event_row["Description"] if pd.notna(event_row["Description"]) else "", key="edit_event_description_bottom")
+                        if st.button("Update Event", key="update_event_bottom"):
+                            if not edited_title.strip():
+                                st.error("Event title is required.")
+                            else:
+                                try:
+                                    cursor.execute(
+                                        "UPDATE events SET title=%s, event_date=%s, event_time=%s, link=%s, description=%s WHERE id=%s",
+                                        (edited_title, edited_date, edited_time, None, edited_description, selected_event_id)
+                                    )
+                                    conn.commit()
+                                    st.success("✅ Event updated successfully!")
+                                    admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
+                                    cursor.execute("SELECT email FROM notification_emails")
+                                    notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
+                                    html_table = f"""
+                                    <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+                                      <tr><th>Title</th><td>{edited_title}</td></tr>
+                                      <tr><th>Date</th><td>{edited_date}</td></tr>
+                                      <tr><th>Time</th><td>{edited_time}</td></tr>
+                                      <tr><th>Description</th><td>{edited_description}</td></tr>
+                                    </table>
+                                    <br><b>Modified By:</b> {admin_full_name}
+                                    """
+                                    if notification_emails:
+                                        send_email(
+                                            "Ganesh Chaturthi Event Updated",
+                                            f"<b>Event Updated:</b><br><br>{html_table}",
+                                            notification_emails
+                                        )
+                                    st.session_state.refresh_events = True
+                                    st.rerun()
+                                except Exception as e:
+                                    conn.rollback()
+                                    st.error(f"❌ Failed to update event: {e}")
+
+                    with tab2:
+                        st.markdown("#### Delete this event?")
+                        st.markdown(f"**Title:** {event_row['Event Name']}")
+                        st.markdown(f"**Date:** {event_row['Date']}")
+                        st.markdown(f"**Time:** {event_row['Time']}")
+                        st.markdown(f"**Description:** {event_row['Description']}")
+                        if st.button("Delete Event", key="delete_event_bottom"):
                             try:
-                                cursor.execute(
-                                    "UPDATE events SET title=%s, event_date=%s, event_time=%s, link=%s, description=%s WHERE id=%s",
-                                    (edited_title, edited_date, edited_time, None, edited_description, selected_event_id)
-                                )
+                                cursor.execute("DELETE FROM events WHERE id=%s", (selected_event_id,))
                                 conn.commit()
-                                st.success("✅ Event updated successfully!")
+                                st.success("🗑️ Event deleted successfully!")
                                 admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
                                 cursor.execute("SELECT email FROM notification_emails")
                                 notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
                                 html_table = f"""
                                 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-                                  <tr><th>Title</th><td>{edited_title}</td></tr>
-                                  <tr><th>Date</th><td>{edited_date}</td></tr>
-                                  <tr><th>Time</th><td>{edited_time}</td></tr>
-                                  <tr><th>Description</th><td>{edited_description}</td></tr>
+                                  <tr><th>Title</th><td>{event_row['Event Name']}</td></tr>
+                                  <tr><th>Date</th><td>{event_row['Date']}</td></tr>
+                                  <tr><th>Description</th><td>{event_row['Description']}</td></tr>
                                 </table>
                                 <br><b>Modified By:</b> {admin_full_name}
                                 """
                                 if notification_emails:
                                     send_email(
-                                        "Ganesh Chaturthi Event Updated",
-                                        f"<b>Event Updated:</b><br><br>{html_table}",
+                                        "Ganesh Chaturthi Event Deleted",
+                                        f"<b>Event deleted:</b><br><br>{html_table}",
                                         notification_emails
                                     )
                                 st.session_state.refresh_events = True
                                 st.rerun()
                             except Exception as e:
                                 conn.rollback()
-                                st.error(f"❌ Failed to update event: {e}")
-
-            with tab2:
-                st.markdown("#### Delete this event?")
-                st.markdown(f"**Title:** {event_row['Event Name']}")
-                st.markdown(f"**Date:** {event_row['Date']}")
-                st.markdown(f"**Time:** {event_row['Time']}")
-                st.markdown(f"**Description:** {event_row['Description']}")
-                if st.button("Delete Event", key="delete_event_bottom"):
-                    try:
-                        cursor.execute("DELETE FROM events WHERE id=%s", (selected_event_id,))
-                        conn.commit()
-                        st.success("🗑️ Event deleted successfully!")
-                        admin_full_name = st.session_state.get('admin_full_name', 'Unknown')
-                        cursor.execute("SELECT email FROM notification_emails")
-                        notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
-                        html_table = f"""
-                        <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-                          <tr><th>Title</th><td>{event_row['Event Name']}</td></tr>
-                          <tr><th>Date</th><td>{event_row['Date']}</td></tr>
-                          <tr><th>Description</th><td>{event_row['Description']}</td></tr>
-                        </table>
-                        <br><b>Modified By:</b> {admin_full_name}
-                        """
-                        if notification_emails:
-                            send_email(
-                                "Ganesh Chaturthi Event Deleted",
-                                f"<b>Event deleted:</b><br><br>{html_table}",
-                                notification_emails
-                            )
-                        st.session_state.refresh_events = True
-                        st.rerun()
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"❌ Failed to delete event: {e}")
-    else:
-        st.info("No events available to edit or delete.")
+                                st.error(f"❌ Failed to delete event: {e}")
+            else:
+                st.info("No events available to edit or delete.")
