@@ -59,7 +59,23 @@ USER_PASSWORD = st.secrets["user_password"]
 if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
-if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
+main_menu = option_menu(
+    "Menu",
+    ["Prasad Seva", "Events", "Contributions", "Statistics", "Expenses"] + (["Admin"] if st.session_state.admin_logged_in else []),
+    icons=["award", "calendar-event", "gift", "bar-chart", "cash-coin"] + (["lock"] if st.session_state.admin_logged_in else []),
+    menu_icon="cast",
+    default_index=0,
+    orientation="horizontal"
+)
+
+# Direct access for Events and Prasad Seva
+if main_menu == "Events":
+    from app.events import events_tab
+    events_tab()
+elif main_menu == "Prasad Seva":
+    from app.prasad_seva import prasad_seva_tab
+    prasad_seva_tab()
+elif not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
     st.markdown("""
     <style>
     .stImage > img {

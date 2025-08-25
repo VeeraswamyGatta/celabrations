@@ -5,6 +5,21 @@ from .db import get_connection
 from .email_utils import send_email
 
 def prasad_seva_tab():
+    # --- Clear Add Prasad Seva form fields if needed ---
+    if st.session_state.get("clear_prasad_form", False):
+        st.session_state["prasad_group_names"] = ""
+        st.session_state["prasad_group_items"] = ""
+        st.session_state["prasad_group_apartment"] = ""
+        st.session_state["prasad_individual_name"] = ""
+        st.session_state["prasad_individual_apartment"] = ""
+        st.session_state["prasad_num_people"] = 1
+        min_date = datetime.date(2025, 8, 26)
+        st.session_state["prasad_seva_date"] = min_date
+        st.session_state["prasad_pooja_time"] = "Evening Pooja"
+        st.session_state["prasad_filter_date"] = None
+        st.session_state["prasad_filter_name"] = ""
+        st.session_state["clear_prasad_form"] = False
+        st.rerun()
     st.session_state['active_tab'] = 'Prasad Seva'
     conn = get_connection()
     cursor = conn.cursor()
@@ -33,28 +48,29 @@ def prasad_seva_tab():
     metrics_df["Pooja Time"] = metrics_df["Pooja Time"].apply(lambda pt: f"<span style='font-size:18px;'>{'🌅' if pt=='Morning Pooja' else '🌇'}</span> <b>{pt.replace('Pooja','')}</b>")
     metrics_df["Total People Served"] = metrics_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
     # Center align columns and render as HTML
-    tabs = st.tabs(["Prasad Seva Summary", "Prasad Seva Sponsors List"])
+    tabs = st.tabs(["Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group"])
     with tabs[0]:
         # Calculate total sponsored count for all days
         cursor.execute("SELECT SUM(num_people) FROM prasad_seva WHERE status='active'")
         total_sponsored = cursor.fetchone()[0] or 0
-    with tabs[0]:
         st.markdown(f"<h4 style='text-align:center;color:#388E3C;background:#C8E6C9;padding:7px;border-radius:10px;margin-bottom:0.5em;font-size:1.1em;'>🎉 Total People Served Count (All Days): <span style='color:#1B5E20;'>{total_sponsored}</span></h4>", unsafe_allow_html=True)
         st.markdown(metrics_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
         # Download button for summary table
         # Prepare raw summary data for download (no HTML tags)
         raw_metrics_df = pd.DataFrame(metrics_data, columns=["Date", "Pooja Time", "Total People Served"])
         csv_summary = raw_metrics_df.to_csv(index=False)
-        st.download_button(label="📥", data=csv_summary, file_name="prasad_seva_summary.csv", mime="text/csv")
+    with tabs[0]:
+        st.download_button(label="📥", data=csv_summary, file_name="prasad_seva_summary.csv", mime="text/csv", key="download_summary_tab0")
 
     with tabs[1]:
+        # Sponsors list code restored
         # --- Filters ---
         st.markdown("<h5 style='margin-bottom:0.2em;'>🔎 Filter Prasad Seva Entries</h5>", unsafe_allow_html=True)
         filter_col1, filter_col2 = st.columns(2)
         with filter_col1:
-            filter_date = st.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date")
+            filter_date = st.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date_tab1")
         with filter_col2:
-            filter_name = st.text_input("Filter by Name", value="", key="prasad_filter_name")
+            filter_name = st.text_input("Filter by Name", value="", key="prasad_filter_name_tab1")
 
         query = "SELECT id, seva_type, names, item_name, num_people, apartment, seva_date, pooja_time, created_by, status FROM prasad_seva WHERE status='active'"
         filters = []
@@ -98,7 +114,7 @@ def prasad_seva_tab():
             # Prepare raw sponsors list data for download (no HTML tags)
             raw_sponsors_df = df.drop(columns=["ID", "Created By"])
             csv_sponsors = raw_sponsors_df.to_csv(index=False)
-            st.download_button(label="📥", data=csv_sponsors, file_name="prasad_seva_sponsors_list.csv", mime="text/csv")
+            st.download_button(label="📥", data=csv_sponsors, file_name="prasad_seva_sponsors_list.csv", mime="text/csv", key="download_sponsors_tab1")
             # Show Send Email button only for admin, directly below table
             if st.session_state.get('admin_logged_in', False):
                 if st.button("Send Prasad Seva Details to Email"):
@@ -111,6 +127,23 @@ def prasad_seva_tab():
                         notification_emails
                     )
                     st.success("✅ Email sent!")
+        else:
+            st.info("No Prasad Seva entries yet.")
+
+    # Tab[2] - Total Served by Name/Group
+    with tabs[2]:
+        st.markdown("<h5 style='margin-bottom:0.2em;'>🧑👥 Total Served by Name/Group</h5>", unsafe_allow_html=True)
+        cursor.execute("SELECT names, SUM(num_people) as total_served FROM prasad_seva WHERE status='active' GROUP BY names ORDER BY total_served DESC")
+        name_rows = cursor.fetchall()
+        if name_rows and len(name_rows) > 0:
+            name_df = pd.DataFrame(name_rows, columns=["Name/Group", "Total Served"])
+            # Format for display
+            name_df["Name/Group"] = name_df["Name/Group"].apply(lambda n: f"<span style='font-size:16px;'>&#128100;</span> <b>{n}</b>" if n else "")
+            name_df["Total Served"] = name_df["Total Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
+            st.markdown(name_df.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
+            # Download button for summary by name/group (only one)
+            csv_name = name_df[['Name/Group', 'Total Served']].to_csv(index=False)
+            st.download_button(label="📥", data=csv_name, file_name="prasad_seva_total_served_by_name.csv", mime="text/csv", key="download_total_served_tab2")
         else:
             st.info("No Prasad Seva entries yet.")
     # ...existing code...
@@ -161,6 +194,7 @@ def prasad_seva_tab():
         elif not pooja_time:
             st.error("Pooja Time is required.")
         else:
+            st.info("Add Prasad Seva is in progress...")
             for item in item_names:
                 if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
                     cursor.execute(
@@ -184,23 +218,9 @@ def prasad_seva_tab():
             }
             st.session_state["prasad_last_submission"] = submitted_info
             st.success("✅ Added seva successfully")
-            # Show submitted info immediately
-            st.markdown("""
-<div style='background:#e3f2fd;border-radius:10px;padding:1em 1.2em 1.2em 1.2em;margin-top:1em;box-shadow:0 2px 8px #90caf9;'>
-    <h4 style='color:#1565C0;margin-top:0;margin-bottom:1em;'>Your Submitted Prasad Seva</h4>
-    <table style='width:100%;font-size:1.08em;'>
-        <tr><td style='font-weight:600;color:#1565C0;'>Type:</td><td>{Type}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Names:</td><td>{Names}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Item Name(s):</td><td>{Item Name(s)}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Apartment:</td><td>{Apartment}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Number of People:</td><td>{Number of People}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Date:</td><td>{Date}</td></tr>
-        <tr><td style='font-weight:600;color:#1565C0;'>Pooja Time:</td><td>{Pooja Time}</td></tr>
-    </table>
-</div>
-""".format(**submitted_info), unsafe_allow_html=True)
-            if st.button("🔄 Refresh Page for Updated Entries"):
-                st.rerun()
+            # Set flag to clear input fields on next run
+            st.session_state["clear_prasad_form"] = True
+            st.rerun()
     # removed view submitted info button and logic
 
     # Edit/Delete Prasad Seva (now for all users)
