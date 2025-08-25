@@ -59,85 +59,29 @@ USER_PASSWORD = st.secrets["user_password"]
 if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
 
-main_menu = option_menu(
-    "Menu",
-    ["Prasad Seva", "Events", "Contributions", "Statistics", "Expenses"] + (["Admin"] if st.session_state.admin_logged_in else []),
-    icons=["award", "calendar-event", "gift", "bar-chart", "cash-coin"] + (["lock"] if st.session_state.admin_logged_in else []),
-    menu_icon="cast",
-    default_index=0,
-    orientation="horizontal"
-)
-
-# Direct access for Events and Prasad Seva
-if main_menu == "Events":
-    from app.events import events_tab
-    events_tab()
-elif main_menu == "Prasad Seva":
-    from app.prasad_seva import prasad_seva_tab
-    prasad_seva_tab()
-elif not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
-    st.markdown("""
-    <style>
-    .stImage > img {
-        margin-top: 24px;
-        max-width: 90px;
-        height: auto;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    @media (max-width: 600px) {
-        .stImage > img {
-            margin-top: 36px !important;
-            max-width: 70px !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    st.image(ganesh_img, width=90)
-    st.markdown("""
-    <style>
-    .login-card {
-        max-width: 400px;
-        margin: 10px auto 0 auto;
-        background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 2px 16px rgba(21,101,192,0.12);
-        padding: 32px 28px 24px 28px;
-        text-align: center;
-    }
-    .login-title {
-        color: #1565C0;
-        font-size: 2em;
-        font-weight: bold;
-        margin-bottom: 12px;
-    }
-    .login-input {
-        margin-bottom: 18px;
-    }
-    .login-btn {
-        background: #1565C0;
-        color: #fff;
-        border-radius: 8px;
-        font-size: 1.1em;
-        padding: 8px 32px;
-        border: none;
-        margin-top: 10px;
-        cursor: pointer;
-    }
-    .login-btn:hover {
-        background: #0d47a1;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Removed empty login card div that caused extra box
-    st.markdown("""
-    <div style='background:linear-gradient(90deg,#e3f2fd 60%,#fffde7 100%); border-radius:16px; box-shadow:0 2px 12px #e0e0e0; padding:28px 32px 18px 32px; margin:18px auto 18px auto; border:2px solid #90caf9; max-width:420px;'>
-        <div style='font-size:1.35em; font-weight:bold; color:#1976d2; margin-bottom:12px; text-align:center;'>🙏 Login</div>
-        <div style='font-size:1.08em; color:#333; margin-bottom:10px; text-align:center;'>Please login to participate or manage the Ganesh Celebrations.</div>
-    </div>
-    """, unsafe_allow_html=True)
+show_login_form = False
+# Only show the initial menu if not logged in
+if not st.session_state.user_logged_in and not st.session_state.admin_logged_in:
+    # Show only Prasad Seva, Events, Login
+    initial_menu = option_menu(
+        "Menu",
+        ["Prasad Seva", "Events", "Login"],
+        icons=["award", "calendar-event", "box-arrow-in-right"],
+        menu_icon="cast",
+        default_index=0,
+        orientation="horizontal"
+    )
+    if initial_menu == "Prasad Seva":
+        from app.prasad_seva import prasad_seva_tab
+        prasad_seva_tab()
+    elif initial_menu == "Events":
+        from app.events import events_tab
+        events_tab()
+    elif initial_menu == "Login":
+        show_login_form = True
+else:
+    show_login_form = False
+if show_login_form:
     role = st.selectbox("Login as", ["User", "Admin"], index=0)
     if role == "User":
         with st.form("user_login_form"):
@@ -220,7 +164,6 @@ elif not st.session_state.user_logged_in and not st.session_state.admin_logged_i
                         </ul>
                     </div>
                     """.format("".join([f"<li>{err}</li>" for err in errors])), unsafe_allow_html=True)
-    # Removed closing div for login card
 else:
     # Add Ganesh image to the top-right corner (after login)
     st.markdown(
@@ -256,53 +199,57 @@ else:
         unsafe_allow_html=True
     )
     # Fallback for environments where JS injection doesn't work (e.g., Streamlit Cloud)
-    st.image(ganesh_img, width=70)
-    # Show contributions page after successful login
+    # (Removed: do not show Ganesh image at the bottom)
+    # Show menu based on role after successful login
     if st.session_state.admin_logged_in:
         menu_items = ["Contributions", "Events", "Prasad Seva", "Statistics", "Expenses", "Admin"]
         menu_icons = ["gift", "calendar-event", "award", "bar-chart", "cash-coin", "lock"]
-    else:
+    elif st.session_state.user_logged_in:
         menu_items = ["Contributions", "Events", "Prasad Seva", "Statistics", "Expenses"]
         menu_icons = ["gift", "calendar-event", "award", "bar-chart", "cash-coin"]
-    main_menu = option_menu(
-        "Menu",
-        menu_items,
-        icons=menu_icons,
-        menu_icon="cast",
-        default_index=0,
-        orientation="horizontal"
-    )
-
-    if main_menu == "Contributions":
-        sponsorship_tab()
-    elif main_menu == "Events":
-        if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
-            st.session_state['admin_full_name'] = ''
-        events_tab()
-    elif main_menu == "Prasad Seva":
-        from app.prasad_seva import prasad_seva_tab
-        prasad_seva_tab()
-    elif main_menu == "Statistics":
-        # Set is_admin flag for statistics
-        st.session_state['is_admin'] = st.session_state.admin_logged_in
-        statistics_tab()
-    elif main_menu == "Expenses":
-        from app.expenses import expenses_tab
-        expenses_tab()
-    elif st.session_state.admin_logged_in and main_menu == "Admin":
-        if 'admin_full_name' not in st.session_state:
-            st.session_state.admin_full_name = ''
-        admin_menu = option_menu(
-            "Admin Sections",
-            [
-                "Payment Details",
-                "Sponsorship Record",
-                "Sponsorship Items",
-                "Manage Notification Emails"
-            ],
-            icons=["credit-card", "pencil-square", "list-task", "envelope-fill"],
-            menu_icon="gear",
+    else:
+        menu_items = []
+        menu_icons = []
+    if menu_items:
+        main_menu = option_menu(
+            "Menu",
+            menu_items,
+            icons=menu_icons,
+            menu_icon="cast",
             default_index=0,
-            orientation="vertical"
+            orientation="horizontal"
         )
-        admin_tab(menu=admin_menu)
+
+        if main_menu == "Contributions":
+            sponsorship_tab()
+        elif main_menu == "Events":
+            if 'admin_full_name' not in st.session_state or not st.session_state['admin_full_name']:
+                st.session_state['admin_full_name'] = ''
+            events_tab()
+        elif main_menu == "Prasad Seva":
+            from app.prasad_seva import prasad_seva_tab
+            prasad_seva_tab()
+        elif main_menu == "Statistics":
+            # Set is_admin flag for statistics
+            st.session_state['is_admin'] = st.session_state.admin_logged_in
+            statistics_tab()
+        elif main_menu == "Expenses":
+            from app.expenses import expenses_tab
+            expenses_tab()
+        elif st.session_state.admin_logged_in and main_menu == "Admin":
+            if 'admin_full_name' not in st.session_state:
+                st.session_state.admin_full_name = ''
+            admin_menu = option_menu(
+                "Admin Sections",
+                [
+                    "Payment Details",
+                    "Sponsorship Record",
+                    "Sponsorship Items",
+                    "Manage Notification Emails"
+                ],
+                icons=["credit-card", "pencil-square", "list-task", "envelope-fill"],
+                menu_icon="gear",
+                default_index=0,
+                orientation="vertical"
+            )
+            admin_tab(menu=admin_menu)
