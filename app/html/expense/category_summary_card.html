@@ -1,0 +1,38 @@
+<div style="max-width:540px;margin:36px auto 0 auto;padding:0;">
+    <div style="background:linear-gradient(90deg,#43cea2 0%,#185a9d 100%);color:#fff;padding:22px 32px 20px 32px;border-radius:22px;box-shadow:0 4px 24px #b2dfdb;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;">
+            <span style="font-size:2.2em;margin-right:18px;">💰</span>
+            <div>
+                <div style="font-size:1.25em;font-weight:600;letter-spacing:0.5px;">Available Amount in Wallet</div>
+                <div style="font-size:0.98em;color:#e0f7fa;margin-top:2px;">Total Received - Total Expenses</div>
+            </div>
+        </div>
+        <div style="background:#fffde7;color:#388E3C;padding:10px 28px;border-radius:16px;font-size:1.45em;font-weight:bold;box-shadow:0 2px 12px #c8e6c9;min-width:120px;text-align:center;">
+            {wallet_amount}
+        </div>
+    </div>
+    <div style="background:#fff;padding:22px 32px 32px 32px;border-radius:22px;box-shadow:0 2px 18px #b2dfdb;margin-top:22px;">
+        <table style="width:100%;margin-bottom:18px;border-collapse:separate;border-spacing:0;">
+            <tr>
+                <td style="font-size:1.08em;color:#388E3C;font-weight:600;padding:8px 0;">Total Received</td>
+                <td style="font-size:1.08em;color:#388E3C;font-weight:600;text-align:right;padding:8px 0;">{total_payments}</td>
+            </tr>
+            <tr>
+                <td style="font-size:1.08em;color:#D84315;font-weight:600;padding:8px 0;">Total Expenses</td>
+                <td style="font-size:1.08em;color:#D84315;font-weight:600;text-align:right;padding:8px 0;">{total_expenses}</td>
+            </tr>
+        </table>
+        <div style="font-size:1.18em;font-weight:bold;color:#185a9d;margin-bottom:10px;letter-spacing:0.5px;">📊 Category Expense Summary</div>
+        <table style='width:100%;border-collapse:separate;border-spacing:0;'>
+            <thead>
+                <tr style='background:#F5F5F5;'>
+                    <th style='text-align:left;padding:8px 18px;color:#185a9d;font-size:1.08em;'>Category</th>
+                    <th style='text-align:right;padding:8px 18px;color:#185a9d;font-size:1.08em;'>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+    </div>
+</div>

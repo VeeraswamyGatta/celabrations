@@ -26,23 +26,8 @@ def expenses_tab():
     total_expenses = cursor.fetchone()[0]
     wallet_amount = total_payments - total_expenses
     blink_color = 'red' if wallet_amount < 500 else 'green'
-    st.markdown(f"""
-    <div style='font-size:1.3em; font-weight:bold; margin-bottom:10px;'>
-        Available Amount in Wallet (Total Received Amount - Total Expense Amount): {total_payments:.2f} - {total_expenses:.2f} = <span style='background: {blink_color}; color: white; padding: 4px 12px; border-radius: 8px; animation: blink 1s linear infinite;'>{wallet_amount:.2f}</span>
-    </div>
-    <style>
-    @keyframes blink {{
-      0% {{ opacity: 1; }}
-      50% {{ opacity: 0.2; }}
-      100% {{ opacity: 1; }}
-    }}
-    span[style*='animation: blink'] {{ animation: blink 1s linear infinite; }}
-    </style>
-    """, unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; color: #6D4C41;'>Expenses</h1>", unsafe_allow_html=True)
 
     # Fetch expenses data
-    st.markdown("### Expenses")
     cursor.execute("SELECT id, category, sub_category, amount, date, spent_by, comments, receipt_path, receipt_blob FROM expenses WHERE status='active' ORDER BY category, sub_category")
     rows = cursor.fetchall()
     columns = ["ID", "Category", "Sub Category", "Amount", "Date", "Spent By", "Comments", "Receipt", "Receipt Blob"]
@@ -118,17 +103,16 @@ def expenses_tab():
                     recipients = [row[0] for row in cursor.fetchall()]
                     # Prepare email subject and body
                     subject = f"New Expense Added: {category} - {sub_category}"
-                    body = f"""
-<h3>New Expense Added</h3>
-<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-    <tr><th align='left'>Category</th><td>{category}</td></tr>
-    <tr><th align='left'>Sub Category</th><td>{sub_category}</td></tr>
-    <tr><th align='left'>Amount</th><td>{amount:.2f}</td></tr>
-    <tr><th align='left'>Date</th><td>{date}</td></tr>
-    <tr><th align='left'>Spent By</th><td>{spent_by}</td></tr>
-    <tr><th align='left'>Comments</th><td>{comments}</td></tr>
-</table>
-"""
+                    with open("app/html/expense/expense_added_table.html", "r") as f:
+                        html_template = f.read()
+                    body = html_template.format(
+                        category=category,
+                        sub_category=sub_category,
+                        amount=f"{amount:.2f}",
+                        date=date,
+                        spent_by=spent_by,
+                        comments=comments
+                    )
                     # Send email with receipt attached if present
                     st.session_state["expense_submission_in_progress"] = True
                     st.info("Add expense record is in progress...")
@@ -187,26 +171,14 @@ def expenses_tab():
                         f"</tr>"
                         for _, row in cat_summary.iterrows()
                 ])
-                card_html = f"""
-    <div style='max-width:480px;margin:28px auto 0 auto;padding:0;'>
-    <div style='background:linear-gradient(90deg,#6D4C41 60%,#A1887F 100%);color:#fff;padding:12px 22px 10px 22px;border-top-left-radius:14px;border-top-right-radius:14px;font-size:1.18em;font-weight:bold;letter-spacing:0.5px;box-shadow:0 2px 8px #d7ccc8;'>
-    <span style='vertical-align:middle;'>📊 Category Summary</span>
-    </div>
-    <div style='background:#fff;padding:16px 22px 22px 22px;border-bottom-left-radius:14px;border-bottom-right-radius:14px;box-shadow:0 2px 12px #d7ccc8;'>
-    <table style='width:100%;border-collapse:separate;border-spacing:0;'>
-    <thead>
-        <tr style='background:#F5F5F5;'>
-            <th style='text-align:left;padding:8px 18px;color:#6D4C41;font-size:1.08em;'>Category</th>
-            <th style='text-align:right;padding:8px 18px;color:#6D4C41;font-size:1.08em;'>Amount</th>
-        </tr>
-    </thead>
-    <tbody>
-        {table_rows}
-    </tbody>
-    </table>
-    </div>
-    </div>
-    """
+                with open("app/html/expense/category_summary_card.html", "r") as f:
+                    card_template = f.read()
+                card_html = card_template.format(
+                    wallet_amount=wallet_amount,
+                    total_payments=total_payments,
+                    total_expenses=total_expenses,
+                    table_rows=table_rows
+                )
                 st.markdown(card_html, unsafe_allow_html=True)
     tab_idx += 1
 
@@ -341,17 +313,26 @@ def expenses_tab():
                                 cursor.execute("UPDATE expenses SET category=%s, sub_category=%s, amount=%s, date=%s, spent_by=%s, comments=%s, status='active' WHERE id=%s", (new_category, new_sub_category, new_amount, new_date, new_spent_by, new_comments, selected_id))
                             conn.commit()
                             subject = f"Expense Edited: {new_category} - {new_sub_category}"
-                            body = f"""
-                            <b>Expense Edited</b><br><br>
-                            <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-                            <tr><th align='left'>Category</th><td>{new_category}</td></tr>
-                            <tr><th align='left'>Sub Category</th><td>{new_sub_category}</td></tr>
-                            <tr><th align='left'>Amount</th><td>{new_amount:.2f}</td></tr>
-                            <tr><th align='left'>Date</th><td>{new_date}</td></tr>
-                            <tr><th align='left'>Spent By</th><td>{new_spent_by}</td></tr>
-                            <tr><th align='left'>Comments</th><td>{new_comments}</td></tr>
-                            </table>
-                            """
+                            with open("app/html/expense/edit_expense_notification.html", "r") as f:
+                                html_template = f.read()
+                            body = html_template.format(
+                                category=new_category,
+                                sub_category=new_sub_category,
+                                amount=f"{new_amount:.2f}",
+                                date=new_date,
+                                spent_by=new_spent_by,
+                                comments=new_comments
+                            )
+                            with open("app/html/expense/expense_edited_table.html", "r") as f:
+                                html_template = f.read()
+                            body = html_template.format(
+                                category=new_category,
+                                sub_category=new_sub_category,
+                                amount=f"{new_amount:.2f}",
+                                date=new_date,
+                                spent_by=new_spent_by,
+                                comments=new_comments
+                            )
                             recipients = [st.secrets.get("admin_email", "")]
                             if new_receipt_bytes and new_receipt_path:
                                 mime_type = "image/jpeg" if new_receipt_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
@@ -372,17 +353,26 @@ def expenses_tab():
                                 cursor.execute("UPDATE expenses SET status='inactive' WHERE id=%s", (selected_id,))
                                 conn.commit()
                                 subject = f"Expense Deleted: {entry['Category']} - {entry['Sub Category']}"
-                                body = f"""
-                                <b>Expense Deleted</b><br><br>
-                                <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
-                                <tr><th align='left'>Category</th><td>{entry['Category']}</td></tr>
-                                <tr><th align='left'>Sub Category</th><td>{entry['Sub Category']}</td></tr>
-                                <tr><th align='left'>Amount</th><td>{entry['Amount']:.2f}</td></tr>
-                                <tr><th align='left'>Date</th><td>{entry['Date']}</td></tr>
-                                <tr><th align='left'>Spent By</th><td>{entry['Spent By']}</td></tr>
-                                <tr><th align='left'>Comments</th><td>{entry['Comments']}</td></tr>
-                                </table>
-                                """
+                                with open("app/html/expense/delete_expense_confirm.html", "r") as f:
+                                    html_template = f.read()
+                                body = html_template.format(
+                                    category=entry['Category'],
+                                    sub_category=entry['Sub Category'],
+                                    amount=f"{entry['Amount']:.2f}",
+                                    date=entry['Date'],
+                                    spent_by=entry['Spent By'],
+                                    comments=entry['Comments']
+                                )
+                                with open("app/html/expense/expense_deleted_table.html", "r") as f:
+                                    html_template = f.read()
+                                body = html_template.format(
+                                    category=entry['Category'],
+                                    sub_category=entry['Sub Category'],
+                                    amount=f"{entry['Amount']:.2f}",
+                                    date=entry['Date'],
+                                    spent_by=entry['Spent By'],
+                                    comments=entry['Comments']
+                                )
                                 cursor.execute("SELECT email FROM notification_emails")
                                 recipients = [row[0] for row in cursor.fetchall()]
                                 from app.email_utils import send_email

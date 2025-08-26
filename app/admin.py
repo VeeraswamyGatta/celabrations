@@ -132,13 +132,13 @@ def admin_tab(menu="Sponsorship Items"):
                 paypal_total = display_df[display_df["payment_type"] == "PayPal"]["amount"].sum()
                 zelle_total = display_df[display_df["payment_type"] == "Zelle"]["amount"].sum()
                 if selected_type == "All":
-                    st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${{total_amount:,.2f}}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${{paypal_total:,.2f}}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${{zelle_total:,.2f}}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Amount:</b> <span style='color:#6A1B9A;'>${total_amount:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
                 elif selected_type == "PayPal":
-                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${{paypal_total:,.2f}}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total PayPal Amount:</b> <span style='color:#1565C0;'>${paypal_total:,.2f}</span></div>", unsafe_allow_html=True)
                 elif selected_type == "Zelle":
-                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${{zelle_total:,.2f}}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.5em;'><b>Total Zelle Amount:</b> <span style='color:#388E3C;'>${zelle_total:,.2f}</span></div>", unsafe_allow_html=True)
                 if st.button("Send Payment Details Email"):
                     cursor.execute("SELECT email FROM notification_emails")
                     notification_emails = [row[0] for row in cursor.fetchall() if row[0]]
