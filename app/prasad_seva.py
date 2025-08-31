@@ -17,9 +17,19 @@ def prasad_seva_tab():
     is_admin = st.session_state.get("admin_logged_in", False)
     # Define tab_names for admin/non-admin
     if is_admin:
-        tab_names = ["Add Prasad Seva", "Edit/Delete Prasad Seva Entry"]
+        tab_names = [
+            "Add Prasad Seva",
+            "Edit/Delete Prasad Seva Entry",
+            "Prasad Seva Summary",
+            "Prasad Seva Sponsors List",
+            "Total Served by Name/Group"
+        ]
     else:
-        tab_names = ["Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group"]
+        tab_names = [
+            "Prasad Seva Summary",
+            "Prasad Seva Sponsors List",
+            "Total Served by Name/Group"
+        ]
     # Prepend Laddu Auction Winners as default option
     tab_names = [laddu_winners_option] + tab_names
     selected_tab = st.selectbox("Select Section", tab_names, index=0)
@@ -80,62 +90,7 @@ def prasad_seva_tab():
         st.session_state["prasad_filter_name"] = ""
         st.session_state["clear_prasad_form"] = False
         st.rerun()
-    st.session_state['active_tab'] = 'Prasad Seva'
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Removed repeated Prasad Seva heading for cleaner UI
-
-    # Metrics: Date-wise sum of 'How many people are you bringing item for'
-    cursor.execute("SELECT seva_date, pooja_time, SUM(num_people) FROM prasad_seva WHERE status='active' GROUP BY seva_date, pooja_time")
-    metrics_rows = cursor.fetchall()
-    # Build full date/pooja grid for summary
-    min_date = datetime.date(2025, 8, 26)
-    max_date = datetime.date(2025, 8, 30)
-    all_dates = pd.date_range(min_date, max_date).date
-    pooja_times = ["Morning Pooja", "Evening Pooja"]
-    grid = pd.DataFrame([(d, p) for d in all_dates for p in pooja_times], columns=["Date", "Pooja Time"])
-    metrics_df = pd.DataFrame(metrics_rows, columns=["Date", "Pooja Time", "Total People Served"])
-    metrics_df["Date"] = pd.to_datetime(metrics_df["Date"]).dt.date
-    merged_df = grid.merge(metrics_df, on=["Date", "Pooja Time"], how="left").fillna({"Total People Served": 0})
-    merged_df["Total People Served"] = merged_df["Total People Served"].astype(int)
-    # No custom sort by date and pooja time
-    # Remove Morning Pooja for 26-Aug-2025 from summary
-    merged_df = merged_df[~((merged_df["Date"] == datetime.date(2025, 8, 26)) & (merged_df["Pooja Time"] == "Morning Pooja"))]
-    # Format date and time columns for visualization
-    merged_df["Date"] = merged_df["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
-    merged_df["Pooja Time"] = merged_df["Pooja Time"].apply(lambda t: f"<span style='font-size:18px;'>{'🌅' if t=='Morning Pooja' else '🌇'}</span> <b>{t.replace('Pooja','')}</b>")
-    merged_df["Total People Served"] = merged_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
-    st.markdown(
-            """
-            <div style="max-width:480px;margin:0 auto 18px auto;">
-                <div style="background:linear-gradient(90deg,#FFF8E1 60%,#FFE0B2 100%);border-radius:16px;box-shadow:0 4px 16px #FFD18055;padding:18px 24px;display:flex;align-items:center;gap:18px;">
-                    <div style="flex-shrink:0;">
-                        <span style="display:inline-block;background:#FFD54F;border-radius:50%;width:48px;height:48px;line-height:48px;text-align:center;font-size:2.1em;color:#BF360C;animation:blink 1.2s linear infinite;">&#9888;</span>
-                    </div>
-                    <div style="flex:1;text-align:left;">
-                        <span style="font-size:1.08em;color:#4E342E;font-family:'Segoe UI',Arial,sans-serif;font-weight:500;line-height:1.5;">
-                            For <b>Prasad Seva Summary</b>, <b>Prasad Sponsor List</b> and <b>Edit Sponsor List</b> please use the <span style="color:#D84315;font-weight:600;text-decoration:underline;">drop down</span> below to navigate.
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <style>
-            @keyframes blink {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.3; }
-                    100% { opacity: 1; }
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-    )
-    is_admin = st.session_state.get("admin_logged_in", False)
-    if is_admin:
-        tab_names = ["Add Prasad Seva", "Edit/Delete Prasad Seva Entry"]
-    else:
-        tab_names = ["Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group"]
-    selected_tab = st.selectbox("Select Section", tab_names)
+    # ...existing code...
 
     if selected_tab == "Add Prasad Seva":
         st.markdown("### ➕ Add Prasad Seva")
@@ -210,6 +165,21 @@ def prasad_seva_tab():
                 st.rerun()
 
     elif selected_tab == "Prasad Seva Summary":
+        cursor.execute("SELECT seva_date, pooja_time, SUM(num_people) FROM prasad_seva WHERE status='active' GROUP BY seva_date, pooja_time")
+        metrics_rows = cursor.fetchall()
+        min_date = datetime.date(2025, 8, 26)
+        max_date = datetime.date(2025, 8, 30)
+        all_dates = pd.date_range(min_date, max_date).date
+        pooja_times = ["Morning Pooja", "Evening Pooja"]
+        grid = pd.DataFrame([(d, p) for d in all_dates for p in pooja_times], columns=["Date", "Pooja Time"])
+        metrics_df = pd.DataFrame(metrics_rows, columns=["Date", "Pooja Time", "Total People Served"])
+        metrics_df["Date"] = pd.to_datetime(metrics_df["Date"]).dt.date
+        merged_df = grid.merge(metrics_df, on=["Date", "Pooja Time"], how="left").fillna({"Total People Served": 0})
+        merged_df["Total People Served"] = merged_df["Total People Served"].astype(int)
+        merged_df = merged_df[~((merged_df["Date"] == datetime.date(2025, 8, 26)) & (merged_df["Pooja Time"] == "Morning Pooja"))]
+        merged_df["Date"] = merged_df["Date"].apply(lambda d: f"<span style='font-size:16px;'>&#128197;</span> <b>{pd.to_datetime(d).strftime('%d-%b-%Y')}</b>")
+        merged_df["Pooja Time"] = merged_df["Pooja Time"].apply(lambda t: f"<span style='font-size:18px;'>{'🌅' if t=='Morning Pooja' else '🌇'}</span> <b>{t.replace('Pooja','')}</b>")
+        merged_df["Total People Served"] = merged_df["Total People Served"].apply(lambda x: f"<span style='background-color:#FFECB3;color:#6D4C41;padding:4px 12px;border-radius:16px;font-weight:bold;display:inline-block;text-align:center;'>{x}</span>")
         cursor.execute("SELECT SUM(num_people) FROM prasad_seva WHERE status='active'")
         total_sponsored = cursor.fetchone()[0] or 0
         st.markdown(f"<h4 style='text-align:center;color:#388E3C;background:#C8E6C9;padding:7px;border-radius:10px;margin-bottom:0.5em;font-size:1.1em;'>🎉 Total People Served Count (All Days): <span style='color:#1B5E20;'>{total_sponsored}</span></h4>", unsafe_allow_html=True)
@@ -222,6 +192,8 @@ def prasad_seva_tab():
         st.download_button(label="📥", data=csv_summary, file_name="prasad_seva_summary.csv", mime="text/csv", key="download_summary_tab1")
 
     elif selected_tab == "Prasad Seva Sponsors List":
+        min_date = datetime.date(2025, 8, 26)
+        max_date = datetime.date(2025, 8, 30)
         filter_col1, filter_col2, filter_col3 = st.columns(3)
         filter_date = filter_col1.date_input("Filter by Date", value=None, min_value=min_date, max_value=max_date, key="prasad_filter_date_tab2")
         filter_name = filter_col2.text_input("Filter by Name", value="", key="prasad_filter_name_tab2")
