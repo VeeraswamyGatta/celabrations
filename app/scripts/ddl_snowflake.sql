@@ -82,3 +82,11 @@ CREATE TABLE prasad_seva (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status STRING DEFAULT 'active'
 );
+
+-- Create table for Laddu Auction Winners in Snowflake
+CREATE TABLE laddu_winners (
+    id INTEGER AUTOINCREMENT PRIMARY KEY,
+    laddu_number INTEGER NOT NULL,
+    winner_name STRING NOT NULL,
+    amount INTEGER NOT NULL
+);

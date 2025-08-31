@@ -74,3 +74,11 @@ CREATE TABLE IF NOT EXISTS prasad_seva (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(10) DEFAULT 'active'
 );
+
+-- Create table for Laddu Auction Winners in PostgreSQL
+CREATE TABLE laddu_winners (
+    id SERIAL PRIMARY KEY,
+    laddu_number INTEGER NOT NULL,
+    winner_name VARCHAR(255) NOT NULL,
+    amount INTEGER NOT NULL
+);
