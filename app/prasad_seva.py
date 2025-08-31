@@ -50,19 +50,17 @@ def prasad_seva_tab():
         </style>
         <table class='laddu-table'>
             <tr>
-                <th>Place</th>
+                <th>Laddu</th>
                 <th>Winner(s)</th>
 """
-        if is_admin:
-            table_html += "                <th>Amount</th>\n"
-        table_html += "            </tr>\n"
-        for idx, winner in enumerate(laddu_winners, 1):
-            table_html += "            <tr>\n"
-            table_html += f"                <td class='laddu-rank'>{idx}</td>\n"
-            table_html += f"                <td class='laddu-winner'>{winner['name']}</td>\n"
-            if is_admin:
-                table_html += f"                <td class='laddu-amount'>{winner['amount']}</td>\n"
-            table_html += "            </tr>\n"
+       table_html += "                <th>Amount</th>\n"
+       table_html += "            </tr>\n"
+       for idx, winner in enumerate(laddu_winners, 1):
+          table_html += "            <tr>\n"
+          table_html += f"                <td class='laddu-rank'>{idx}</td>\n"
+          table_html += f"                <td class='laddu-winner'>{winner['name']}</td>\n"
+          table_html += f"                <td class='laddu-amount'>{winner['amount']}</td>\n"
+          table_html += "            </tr>\n"
         table_html += "        </table>\n"
         st.markdown(table_html, unsafe_allow_html=True)
         return
