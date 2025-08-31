@@ -234,13 +234,15 @@ def expenses_tab():
                 categories = [row[0] for row in cursor.fetchall()]
                 if "Miscellaneous" not in categories:
                     categories.append("Miscellaneous")
-                expense_options = ["Choose an item"] + [f"{df[df['ID']==x]['Category'].values[0]} - {df[df['ID']==x]['Sub Category'].values[0]}" for x in df["ID"].tolist()]
+                # Sort by ID
+                sorted_df = df.sort_values(by="ID")
+                expense_options = ["Choose an item"] + [f"ID {row['ID']} | Spent By: {row['Spent By']} | Amount: {row['Amount']}" for _, row in sorted_df.iterrows()]
                 selected_idx = st.selectbox("Select Expense to Edit/Delete", range(len(expense_options)), format_func=lambda i: expense_options[i])
                 if selected_idx == 0:
                     st.info("Please choose an expense to edit or delete.")
                 else:
-                    selected_id = df["ID"].tolist()[selected_idx-1]
-                    entry = df[df["ID"]==selected_id].iloc[0].copy()
+                    selected_id = sorted_df["ID"].tolist()[selected_idx-1]
+                    entry = sorted_df[sorted_df["ID"]==selected_id].iloc[0].copy()
                     import re
                     amount_str = str(entry["Amount"])
                     amount_val = float(re.sub(r"[^0-9.]+", "", amount_str))
@@ -345,11 +347,12 @@ def expenses_tab():
                             st.rerun()
                     with delete_tab:
                         entered_cat = st.text_input(f"Type the Category to confirm deletion ({entry['Category']})", key=f"delete_cat_{selected_id}")
-                        entered_subcat = st.text_input(f"Type the Sub Category to confirm deletion ({entry['Sub Category']})", key=f"delete_subcat_{selected_id}")
+                        subcat_display = entry['Sub Category'].strip()
+                        entered_subcat = st.text_input(f"Type the Sub Category to confirm deletion ({subcat_display})", key=f"delete_subcat_{selected_id}")
                         confirm_message = f"Type <b>{entry['Category']}</b> and <b>{entry['Sub Category']}</b> above and click Delete to confirm."
                         st.markdown(confirm_message, unsafe_allow_html=True)
                         if st.button("Delete Expense", key=f"delete_expense_{selected_id}"):
-                            if entered_cat.strip() == entry['Category'] and entered_subcat.strip() == entry['Sub Category']:
+                            if entered_cat.strip() == entry['Category'].strip() and entered_subcat.strip() == entry['Sub Category'].strip():
                                 cursor.execute("UPDATE expenses SET status='inactive' WHERE id=%s", (selected_id,))
                                 conn.commit()
                                 subject = f"Expense Deleted: {entry['Category']} - {entry['Sub Category']}"

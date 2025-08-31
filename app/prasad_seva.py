@@ -7,6 +7,65 @@ from .db import get_connection
 from .email_utils import send_email
 
 def prasad_seva_tab():
+    laddu_winners_option = "Laddu Auction Winners"
+    laddu_winners = [
+        {"name": "Vamsi Surapaneni, Sravani and Family", "amount": 521},
+        {"name": "Raghavender Reddy, Ramya and Family", "amount": 501},
+        {"name": "Malleswar, Mounika and Family", "amount": 522},
+    ]
+    is_admin = st.session_state.get("admin_logged_in", False)
+    # Define tab_names for admin/non-admin
+    if is_admin:
+        tab_names = ["Add Prasad Seva", "Edit/Delete Prasad Seva Entry"]
+    else:
+        tab_names = ["Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group"]
+    # Prepend Laddu Auction Winners as default option
+    tab_names = [laddu_winners_option] + tab_names
+    selected_tab = st.selectbox("Select Section", tab_names, index=0)
+
+    if selected_tab == laddu_winners_option:
+        st.markdown(
+            """
+            <div style='max-width:520px;margin:0 auto 18px auto;background:#FFFDE7;border-radius:18px;box-shadow:0 2px 12px #FFD18033;padding:28px 18px;'>
+                <div style='font-size:1.15em;font-weight:600;color:#BF360C;text-align:center;margin-bottom:12px;'>
+                    Thank you everyone for participating in Ganesh Celebrations 2025 and making it a great success.<br>
+                    This would not have been possible without your support and teamwork.<br>
+                    Please see the Laddu Auction winners list below.<br>
+                    Congratulations to all who took part, and special wishes to the winners!
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        # Winners Table
+        # Improved table design: Rank, Winner(s), Amount (admin only)
+        table_html = """
+        <style>
+        .laddu-table { width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:10px; }
+        .laddu-table th { background:#FFD180; color:#6D4C41; font-weight:700; padding:10px 16px; border-radius:8px 8px 0 0; font-size:1.08em; }
+        .laddu-table td { background:#FFFDE7; padding:10px 16px; border-radius:0 0 8px 8px; font-size:1.05em; }
+        .laddu-rank { font-weight:700; color:#D84315; text-align:center; }
+        .laddu-winner { font-weight:500; color:#4E342E; }
+        .laddu-amount { font-weight:700; color:#388E3C; text-align:right; }
+        </style>
+        <table class='laddu-table'>
+            <tr>
+                <th>Place</th>
+                <th>Winner(s)</th>
+"""
+        if is_admin:
+            table_html += "                <th>Amount</th>\n"
+        table_html += "            </tr>\n"
+        for idx, winner in enumerate(laddu_winners, 1):
+            table_html += "            <tr>\n"
+            table_html += f"                <td class='laddu-rank'>{idx}</td>\n"
+            table_html += f"                <td class='laddu-winner'>{winner['name']}</td>\n"
+            if is_admin:
+                table_html += f"                <td class='laddu-amount'>{winner['amount']}</td>\n"
+            table_html += "            </tr>\n"
+        table_html += "        </table>\n"
+        st.markdown(table_html, unsafe_allow_html=True)
+        return
     # --- Clear Add Prasad Seva form fields if needed ---
     if st.session_state.get("clear_prasad_form", False):
         st.session_state["prasad_group_names"] = ""
@@ -72,7 +131,11 @@ def prasad_seva_tab():
             """,
             unsafe_allow_html=True
     )
-    tab_names = ["Add Prasad Seva", "Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group", "Edit/Delete Prasad Seva Entry"]
+    is_admin = st.session_state.get("admin_logged_in", False)
+    if is_admin:
+        tab_names = ["Add Prasad Seva", "Edit/Delete Prasad Seva Entry"]
+    else:
+        tab_names = ["Prasad Seva Summary", "Prasad Seva Sponsors List", "Total Served by Name/Group"]
     selected_tab = st.selectbox("Select Section", tab_names)
 
     if selected_tab == "Add Prasad Seva":
@@ -94,16 +157,11 @@ def prasad_seva_tab():
             apartment = st.text_input("Apartment Number", key="prasad_individual_apartment", placeholder="e.g. 1203")
 
         num_people = st.number_input("How many people are you bringing item for?", min_value=1, value=st.session_state.get('prasad_num_people', 1), key="prasad_num_people")
-        min_date = datetime.date(2025, 8, 26)
-        max_date = datetime.date(2025, 8, 30)
         today = datetime.date.today()
-        # Only allow today or future dates (within allowed range)
-        allowed_min_date = max(min_date, today)
         seva_date = st.date_input(
             "Date",
-            value=st.session_state.get('prasad_seva_date', today if today >= min_date and today <= max_date else min_date),
-            min_value=allowed_min_date,
-            max_value=max_date,
+            value=st.session_state.get('prasad_seva_date', today),
+            min_value=today,
             key="prasad_seva_date"
         )
         pooja_options = ["Morning Pooja", "Evening Pooja"]
