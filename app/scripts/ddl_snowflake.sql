@@ -90,3 +90,12 @@ CREATE TABLE laddu_winners (
     winner_name STRING NOT NULL,
     amount INTEGER NOT NULL
 );
+
+-- Create table for settlements in Snowflake
+CREATE TABLE settlements (
+    id INTEGER AUTOINCREMENT PRIMARY KEY,
+    name STRING NOT NULL,
+    amount NUMBER(10,2) NOT NULL,
+    sent_by STRING NOT NULL,
+    comments STRING
+);

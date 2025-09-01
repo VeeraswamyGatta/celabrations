@@ -81,6 +81,7 @@ def admin_tab(menu="Sponsorship Items"):
                     st.write(f"Payment Type: **{payment_type}**")
                 with col2:
                     date = st.date_input("Date", key="add_pay_date")
+                    recieved_zelle_acc_name = st.text_input("Received Zelle Account Name", key="add_pay_zelle_acc_name")
                     comments = st.text_input("Comments", key="add_pay_comments")
                 submit = st.form_submit_button("Add Payment Detail")
                 if submit:
@@ -94,13 +95,13 @@ def admin_tab(menu="Sponsorship Items"):
                             date_cst = dt_cst.date()
                             if hasattr(cursor, 'execute') and hasattr(cursor.connection, 'account'):
                                 cursor.execute(
-                                    "INSERT INTO payment_details (id, name, amount, date, comments, payment_type) VALUES (payment_details_id_seq.NEXTVAL, %s, %s, %s, %s, %s)",
-                                    (name, amount, date_cst, comments, payment_type)
+                                    "INSERT INTO payment_details (id, name, amount, date, comments, payment_type, recieved_zelle_acc_name) VALUES (payment_details_id_seq.NEXTVAL, %s, %s, %s, %s, %s, %s)",
+                                    (name, amount, date_cst, comments, payment_type, recieved_zelle_acc_name)
                                 )
                             else:
                                 cursor.execute(
-                                    "INSERT INTO payment_details (name, amount, date, comments, payment_type) VALUES (%s, %s, %s, %s, %s)",
-                                    (name, amount, date_cst, comments, payment_type)
+                                    "INSERT INTO payment_details (name, amount, date, comments, payment_type, recieved_zelle_acc_name) VALUES (%s, %s, %s, %s, %s, %s)",
+                                    (name, amount, date_cst, comments, payment_type, recieved_zelle_acc_name)
                                 )
                             conn.commit()
                             st.success("✅ Payment detail added!")
@@ -111,17 +112,20 @@ def admin_tab(menu="Sponsorship Items"):
 
         with tab_received:
             # Received: Payment details table
-            df_pay = pd.read_sql("SELECT id, name, amount, date, comments, payment_type FROM payment_details ORDER BY date DESC, id DESC", conn)
+            df_pay = pd.read_sql("SELECT id, name, amount, date, payment_type, recieved_zelle_acc_name, comments FROM payment_details ORDER BY date DESC, id DESC", conn)
             df_pay.columns = [c.lower() for c in df_pay.columns]
             if not df_pay.empty:
                 payment_types = ["All"] + sorted(df_pay["payment_type"].dropna().unique().tolist())
                 selected_type = st.selectbox("Filter by Payment Type", payment_types, index=0)
-                comment_filter = st.text_input("Filter by Comments (contains)", value="")
+                zelle_filter = st.text_input("Filter by Zelle Account Name (contains)", value="")
+                comments_filter = st.text_input("Filter by Comments (contains)", value="")
                 filtered_df = df_pay.copy()
                 if selected_type != "All":
                     filtered_df = filtered_df[filtered_df["payment_type"] == selected_type]
-                if comment_filter:
-                    filtered_df = filtered_df[filtered_df["comments"].str.contains(comment_filter, case=False, na=False)]
+                if zelle_filter:
+                    filtered_df = filtered_df[filtered_df["recieved_zelle_acc_name"].str.contains(zelle_filter, case=False, na=False)]
+                if comments_filter:
+                    filtered_df = filtered_df[filtered_df["comments"].str.contains(comments_filter, case=False, na=False)]
                 display_df = filtered_df.copy()
                 if 'id' in display_df.columns:
                     display_df = display_df.drop(columns=["id"])

@@ -82,3 +82,12 @@ CREATE TABLE laddu_winners (
     winner_name VARCHAR(255) NOT NULL,
     amount INTEGER NOT NULL
 );
+
+-- Create table for settlements in PostgreSQL
+CREATE TABLE settlements (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    sent_by VARCHAR(255) NOT NULL,
+    comments TEXT
+);

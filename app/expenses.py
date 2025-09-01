@@ -45,15 +45,138 @@ def expenses_tab():
     # Determine tabs to show based on user role
     is_admin = st.session_state.get("admin_logged_in", False)
     if is_admin:
-        tabs = ["Add Expense", "Expenses List", "Receipts", "Expense Summary by Person", "Edit/Delete Expense"]
+        section_names = ["Add Expense", "Expenses List", "Receipts", "Expense Summary by Person", "Edit/Delete Expense", "Settlements"]
     else:
-        tabs = ["Expenses List", "Receipts"]
-    tab_objects = st.tabs(tabs)
+        section_names = ["Expenses List", "Receipts"]
+    selected_section = st.selectbox("Select Section", section_names, index=0)
+    # Settlements Section (admin only)
+    if is_admin and selected_section == "Settlements":
 
-    tab_idx = 0
-    if is_admin:
-        # Add Expense Tab
-        with tab_objects[tab_idx]:
+        tab1, tab2, tab3 = st.tabs(["Add Settlement", "Wallet Summary", "Settlements Summary"])
+
+        with tab1:
+            st.markdown("### Add Settlement")
+            # Get total expense and settlement amount for each person
+            cursor.execute("SELECT spent_by, SUM(amount) FROM expenses WHERE status='active' GROUP BY spent_by")
+            expense_rows = cursor.fetchall()
+            expense_map = {row[0]: float(row[1]) for row in expense_rows if row[0] and row[1]}
+            cursor.execute("SELECT name, SUM(amount) FROM settlements GROUP BY name")
+            settlement_rows = cursor.fetchall()
+            settlement_map = {row[0]: float(row[1]) for row in settlement_rows if row[0] and row[1]}
+            # Only show names with (total expense - total settlement) > 0
+            expense_names = []
+            for name in sorted(expense_map.keys()):
+                net_amount = expense_map.get(name, 0.0) - settlement_map.get(name, 0.0)
+                if net_amount > 0:
+                    expense_names.append(name)
+            # Add Veeraswamy Gatta(Paypal Amount) if it has net amount > 0
+            cursor.execute("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE status='active' AND spent_by IS NULL")
+            gatta_expense = float(cursor.fetchone()[0])
+            gatta_settled = float(settlement_map.get("Veeraswamy Gatta(Paypal Amount)", 0.0))
+            gatta_net = gatta_expense - gatta_settled
+            if gatta_net > 0:
+                expense_names.append("Veeraswamy Gatta(Paypal Amount)")
+            # Use index to control default selection, avoid setting session_state directly
+            default_index = 0
+            if "settlement_name" in st.session_state and st.session_state["settlement_name"] in expense_names:
+                default_index = expense_names.index(st.session_state["settlement_name"])
+            name = st.selectbox("Name", expense_names, index=default_index, key="settlement_name")
+            # Set Amount field to (total expense - total settlement) for selected name
+            if name == "Veeraswamy Gatta(Paypal Amount)":
+                default_amount = gatta_net
+            else:
+                default_amount = expense_map.get(name, 0.0) - settlement_map.get(name, 0.0)
+            try:
+                default_amount = float(default_amount)
+            except Exception:
+                default_amount = 0.0
+            amount = st.number_input("Amount", min_value=0.0, value=default_amount, format="%.2f", key="settlement_amount")
+            cursor.execute("SELECT DISTINCT recieved_zelle_acc_name FROM payment_details")
+            sent_by_options = sorted([row[0] for row in cursor.fetchall() if row[0] and str(row[0]).strip()])
+            if not sent_by_options:
+                sent_by_options = ["Veeraswamy Gatta(Paypal Amount)"]
+            else:
+                sent_by_options.append("Veeraswamy Gatta(Paypal Amount)")
+            sent_by = st.selectbox("Sent By", sent_by_options, key="settlement_sent_by")
+            comments = st.text_area("Comments", key="settlement_comments")
+            if st.button("Add Settlement", key="add_settlement_btn"):
+                st.session_state["settlement_submission_in_progress"] = True
+                st.info("Adding settlement is in progress...")
+                cursor.execute("INSERT INTO settlements (name, amount, sent_by, comments) VALUES (%s, %s, %s, %s)", (name, amount, sent_by, comments))
+                conn.commit()
+                st.session_state["settlement_submission_in_progress"] = False
+                st.success("✅ Settlement added!")
+                # Clear form fields
+                # Do not clear widget keys after instantiation to avoid StreamlitAPIException
+                st.rerun()
+
+        with tab2:
+            st.markdown("### Wallet Summary")
+            cursor.execute("SELECT recieved_zelle_acc_name, SUM(amount) FROM payment_details GROUP BY recieved_zelle_acc_name")
+            payment_rows = cursor.fetchall()
+            cursor.execute("SELECT name, COALESCE(SUM(amount),0) FROM settlements GROUP BY name")
+            settlement_rows = cursor.fetchall()
+            wallet_summary = []
+            settlement_map = {row[0]: row[1] for row in settlement_rows}
+            total_received_gatta = 0
+            total_settled_gatta = settlement_map.get("Veerasawmy Gatta", 0)
+            for row in payment_rows:
+                zelle_name = row[0]
+                total_received = row[1] or 0
+                total_settled = settlement_map.get(zelle_name, 0)
+                if not zelle_name or str(zelle_name).strip() == "":
+                    total_received_gatta += total_received
+                else:
+                    available = total_received - total_settled
+                    wallet_summary.append({
+                        "Name": zelle_name,
+                        "Total Received Amount": total_received,
+                        "Total Available Amount (Received - Settled)": available
+                    })
+            available_gatta = total_received_gatta - total_settled_gatta
+            wallet_summary.append({
+                "Name": "Veeraswamy Gatta(Paypal Amount)",
+                "Total Received Amount": total_received_gatta,
+                "Total Available Amount (Received - Settled)": available_gatta
+            })
+            wallet_df = pd.DataFrame(wallet_summary)
+            wallet_df = wallet_df.sort_values(by=["Name"]).reset_index(drop=True)
+            wallet_df.index = wallet_df.index + 1
+            st.dataframe(wallet_df, use_container_width=True)
+            total_received_all = wallet_df["Total Received Amount"].sum()
+            total_available_all = wallet_df["Total Available Amount (Received - Settled)"].sum()
+            st.markdown(f"<div style='text-align:right; font-size:1.1em; margin-top:0.5em;'><b>Total Received Amount(All):</b> <span style='color:#6A1B9A;'>${total_received_all:,.2f}</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:right; font-size:1.05em; margin-top:0.2em;'><b>Total Available Amount(All):</b> <span style='color:#388E3C;'>${total_available_all:,.2f}</span></div>", unsafe_allow_html=True)
+
+        with tab3:
+            st.markdown("### Settlements Summary")
+            cursor.execute("SELECT spent_by, SUM(amount) FROM expenses WHERE status='active' GROUP BY spent_by")
+            spent_rows = cursor.fetchall()
+            spent_dict = {row[0]: row[1] for row in spent_rows}
+            if hasattr(cursor, 'connection') and hasattr(cursor.connection, 'account'):
+                cursor.execute("SELECT name, SUM(amount), LISTAGG(comments, '\n') WITHIN GROUP (ORDER BY name) FROM settlements GROUP BY name")
+            else:
+                cursor.execute("SELECT name, SUM(amount), GROUP_CONCAT(comments) FROM settlements GROUP BY name")
+            settlement_rows = cursor.fetchall()
+            # Show all names, even if their net amount is zero or negative
+            all_names = set(spent_dict.keys()) | set(row[0] for row in settlement_rows)
+            summary = []
+            for name in sorted(all_names):
+                total_spent = spent_dict.get(name, 0)
+                received_row = next((row for row in settlement_rows if row[0] == name), None)
+                total_received = received_row[1] if received_row else 0
+                received_comments = received_row[2] if received_row else ""
+                summary.append({
+                    "Name": name,
+                    "Total Spent Amount": total_spent,
+                    "Total Received Amount": total_received,
+                    "Comments": received_comments
+                })
+            summary_df = pd.DataFrame(summary)
+            summary_df.index = summary_df.index + 1
+            st.dataframe(summary_df, use_container_width=True)
+
+    if is_admin and selected_section == "Add Expense":
             cursor.execute("SELECT item FROM sponsorship_items")
             categories = [row[0] for row in cursor.fetchall()]
             if "Miscellaneous" not in categories:
@@ -128,10 +251,8 @@ def expenses_tab():
                     # Set flag to clear input fields on next run
                     st.session_state["clear_expense_form"] = True
                     st.rerun()
-        tab_idx += 1
-
-    # Expenses List Tab
-    with tab_objects[tab_idx]:
+    # Expenses List Section
+    if selected_section == "Expenses List":
         # Category filter (for all)
         category_options = ["All"] + sorted(df["Category"].dropna().unique().tolist())
         selected_category = st.selectbox("Filter by Category", category_options, key="filter_category")
@@ -180,10 +301,8 @@ def expenses_tab():
                     table_rows=table_rows
                 )
                 st.markdown(card_html, unsafe_allow_html=True)
-    tab_idx += 1
-
-    # Receipts Tab
-    with tab_objects[tab_idx]:
+    # Receipts Section
+    if selected_section == "Receipts":
         receipts_df = df.sort_values(by="ID")
         for idx, row in receipts_df.iterrows():
             receipt_name = row["Receipt"]
@@ -208,11 +327,8 @@ def expenses_tab():
                 if is_admin and "Spent By" in row:
                     label_text += f" | Spent By {row['Spent By']}"
                 st.markdown(f"<span style='color:#888;'>{label_text}</span>", unsafe_allow_html=True)
-    tab_idx += 1
-
-    # Expense Summary by Person Tab (admin only)
-    if is_admin:
-        with tab_objects[tab_idx]:
+    # Expense Summary by Person Section (admin only)
+    if is_admin and selected_section == "Expense Summary by Person":
             cursor.execute("SELECT spent_by, SUM(amount) FROM expenses WHERE status='active' GROUP BY spent_by ORDER BY SUM(amount) DESC")
             summary_rows = cursor.fetchall()
             if summary_rows:
@@ -223,11 +339,8 @@ def expenses_tab():
                 st.markdown(f"<div style='font-size:1.1em; font-weight:bold; margin-top:10px; text-align:right;'>Total Amount: <span style='color:#6D4C41'>{total_summary_amount:.2f}</span></div>", unsafe_allow_html=True)
             else:
                 st.info("No expense summary available yet.")
-        tab_idx += 1
-
-    # Edit/Delete Expense Tab (admin only)
-    if is_admin:
-        with tab_objects[tab_idx]:
+    # Edit/Delete Expense Section (admin only)
+    if is_admin and selected_section == "Edit/Delete Expense":
             if rows:
                 categories = []
                 cursor.execute("SELECT item FROM sponsorship_items")
