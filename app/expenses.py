@@ -90,7 +90,8 @@ def expenses_tab():
                 default_amount = float(default_amount)
             except Exception:
                 default_amount = 0.0
-            amount = st.number_input("Amount", min_value=0.0, value=default_amount, format="%.2f", key="settlement_amount")
+            # Remove min_value to allow negative values
+            amount = st.number_input("Amount", value=default_amount, format="%.2f", key="settlement_amount")
             cursor.execute("SELECT DISTINCT recieved_zelle_acc_name FROM payment_details")
             sent_by_options = sorted([row[0] for row in cursor.fetchall() if row[0] and str(row[0]).strip()])
             if not sent_by_options:
@@ -166,14 +167,19 @@ def expenses_tab():
                 received_row = next((row for row in settlement_rows if row[0] == name), None)
                 total_received = received_row[1] if received_row else 0
                 received_comments = received_row[2] if received_row else ""
+                pending_amount = total_spent - total_received
                 summary.append({
                     "Name": name,
                     "Total Spent Amount": total_spent,
                     "Total Received Amount": total_received,
+                    "Pending Transaction Amount": pending_amount,
                     "Comments": received_comments
                 })
             summary_df = pd.DataFrame(summary)
             summary_df.index = summary_df.index + 1
+            # Reorder columns to show Pending Transaction Amount before Comments
+            cols = ["Name", "Total Spent Amount", "Total Received Amount", "Pending Transaction Amount", "Comments"]
+            summary_df = summary_df[cols]
             st.dataframe(summary_df, use_container_width=True)
 
     if is_admin and selected_section == "Add Expense":
@@ -200,7 +206,7 @@ def expenses_tab():
                     receipt_path = receipt_filename
             category = st.selectbox("Category", categories, key="add_expense_category")
             sub_category = st.text_input("Sub Category", placeholder="e.g. Decoration, Snacks", key="add_expense_subcat")
-            amount = st.number_input("Amount", min_value=0.0, format="%.2f", key="add_expense_amount")
+            amount = st.number_input("Amount", format="%.2f", key="add_expense_amount")
             date = st.date_input("Date", value=datetime.date.today(), key="add_expense_date")
             spent_by = st.text_input("Spent By", placeholder="e.g. Name", key="add_expense_spentby")
             comments = st.text_area("Comments", value="", placeholder="Any additional details", key="add_expense_comments")
@@ -209,8 +215,7 @@ def expenses_tab():
                     st.error("Category is required.")
                 elif not sub_category.strip():
                     st.error("Sub Category is required.")
-                elif amount <= 0:
-                    st.error("Amount must be greater than 0.")
+                # Remove validation for amount > 0 to allow negative values
                 elif not spent_by.strip():
                     st.error("Spent By is required.")
                 elif uploaded_receipt is not None and (uploaded_receipt.size > 10 * 1024 * 1024 or uploaded_receipt.type not in ["image/jpeg", "image/png"]):
@@ -236,6 +241,9 @@ def expenses_tab():
                         spent_by=spent_by,
                         comments=comments
                     )
+                    # Add Submitted by info after the table
+                    admin_full_name = st.session_state.get("admin_full_name", "Admin")
+                    body += f"<div style='margin-top:18px;font-size:1.08em;'><b>Submitted by:</b> <span style='color:#1976D2;'>{admin_full_name}</span></div>"
                     # Send email with receipt attached if present
                     st.session_state["expense_submission_in_progress"] = True
                     st.info("Add expense record is in progress...")
@@ -369,7 +377,7 @@ def expenses_tab():
                     with edit_tab:
                         new_category = st.selectbox("Category", categories, index=categories.index(entry["Category"]) if entry["Category"] in categories else 0, key=f"edit_category_{selected_id}")
                         new_sub_category = st.text_input("Sub Category", value=entry["Sub Category"])
-                        new_amount = st.number_input("Amount", min_value=0.0, value=amount_val, format="%.2f")
+                        new_amount = st.number_input("Amount", value=amount_val, format="%.2f")
                         new_date = st.date_input("Date", value=date_obj)
                         new_spent_by = st.text_input("Spent By", value=entry["Spent By"])
                         plain_comments = entry["Comments"]
@@ -410,6 +418,8 @@ def expenses_tab():
                                 st.rerun()
                         else:
                             st.info("No receipt uploaded yet. You can upload one below.")
+                        # Ensure MAX_RECEIPT_SIZE_MB is defined
+                        MAX_RECEIPT_SIZE_MB = 10
                         uploaded_new_receipt = st.file_uploader(f"Upload New Receipt (JPG/PNG, max {MAX_RECEIPT_SIZE_MB}MB)", type=["jpg", "jpeg", "png"], key=f"edit_upload_receipt_{selected_id}")
                         if uploaded_new_receipt is not None:
                             if uploaded_new_receipt.size > MAX_RECEIPT_SIZE_BYTES:
