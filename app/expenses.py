@@ -115,12 +115,13 @@ def expenses_tab():
             st.markdown("### Wallet Summary")
             cursor.execute("SELECT recieved_zelle_acc_name, SUM(amount) FROM payment_details GROUP BY recieved_zelle_acc_name")
             payment_rows = cursor.fetchall()
-            cursor.execute("SELECT name, COALESCE(SUM(amount),0) FROM settlements GROUP BY name")
+            # settlements sent_by sum
+            cursor.execute("SELECT sent_by, COALESCE(SUM(amount),0) FROM settlements GROUP BY sent_by")
             settlement_rows = cursor.fetchall()
-            wallet_summary = []
             settlement_map = {row[0]: row[1] for row in settlement_rows}
+            wallet_summary = []
             total_received_gatta = 0
-            total_settled_gatta = settlement_map.get("Veerasawmy Gatta", 0)
+            total_settled_gatta = settlement_map.get("Veeraswamy Gatta(Paypal Amount)", 0)
             for row in payment_rows:
                 zelle_name = row[0]
                 total_received = row[1] or 0
